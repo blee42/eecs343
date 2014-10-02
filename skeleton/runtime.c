@@ -199,7 +199,19 @@ static bool ResolveExternalCmd(commandT* cmd)
 
 static void Exec(commandT* cmd, bool forceFork)
 {
-  // TODO
+  if (forceFork)
+  {
+    pid_t pid;
+    pid = fork();
+
+    if (pid != -1)
+    {
+      if (pid == 0)
+        execv(cmd->name, cmd->argv);
+    }
+
+    waitpid(pid, NULL, 0); // dis line be important and might need some change
+  }
 }
 
 static bool IsBuiltIn(char* cmd)

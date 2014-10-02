@@ -42,6 +42,9 @@
 #include "interpreter.h"
 #include "runtime.h"
 
+/************Student include***********************************************/
+ #include <unistd.h>
+
 /************Defines and Typedefs*****************************************/
 /*  #defines and typedefs should have their names in all caps.
  *  Global variables begin with g. Global constants with k. Local
@@ -73,11 +76,10 @@ int main (int argc, char *argv[])
   while (!forceExit) /* repeat forever */
   {
     printf("tsh> ");
-
     /* read command line */
     getCommandLine(&cmdLine, BUFSIZE);
 
-    if(strcmp(cmdLine, "exit") == 0)
+    if((strcmp(cmdLine, "exit") == 0))
     {
       forceExit=TRUE;
       continue;
@@ -90,7 +92,6 @@ int main (int argc, char *argv[])
     /* interpret command and line
      * includes executing of commands */
     Interpret(cmdLine);
-
   }
 
   /* shell termination */
