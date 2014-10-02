@@ -102,8 +102,9 @@ int main (int argc, char *argv[])
 
 static void sig(int signo)
 {
-  printf("FOUND A SIGNAL :D");
+  printf("FOUND A SIGNAL :D\n");
   int status;
   waitpid(-1, &status, WNOHANG);
+  
 }
 

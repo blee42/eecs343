@@ -131,7 +131,40 @@ void RunCmdBg(commandT* cmd)
     }
     else
     {
+      bgjobL* current = bgjobs;
       printf("[1] %d\n", pid);
+
+      bgjobL* newJob = (bgjobL*) malloc(sizeof(bgjobL));
+      newJob->pid = pid;
+      newJob->next = NULL;
+
+      int length = 1; // debug
+
+      if (current == NULL)
+      {
+        bgjobs = newJob;
+      }
+      else
+      {
+        while (current->next != NULL)
+        {
+          current = current->next;
+          length++;
+        }
+        current->next = newJob;
+      }
+
+      int i;
+      bgjobL* debug = bgjobs;
+      for(i = 1; i <= length; i++)
+      {
+        printf("PROC[%d]: %d\n", i, debug->pid);
+        debug = debug->next;
+      }
+
+
+
+
       //int status;
       //waitpid(pid, &status, WNOHANG); // dis line be important and might need some change
     }
