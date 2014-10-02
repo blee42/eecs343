@@ -119,7 +119,23 @@ void RunCmdFork(commandT* cmd, bool fork)
 
 void RunCmdBg(commandT* cmd)
 {
-  // TODO
+  pid_t pid;
+  pid = fork();
+
+  if (pid != -1)
+  {
+    if (pid == 0)
+    {
+      execv(cmd->name, cmd->argv);
+      exit(2);
+    }
+    else
+    {
+      printf("[1] %d\n", pid);
+      //int status;
+      //waitpid(pid, &status, WNOHANG); // dis line be important and might need some change
+    }
+  }
 }
 
 void RunCmdPipe(commandT* cmd1, commandT* cmd2)
@@ -199,6 +215,11 @@ static bool ResolveExternalCmd(commandT* cmd)
 
 static void Exec(commandT* cmd, bool forceFork)
 {
+  if (cmd -> bg == 1)
+  {
+    RunCmdBg(cmd);
+    return;
+  }
   if (forceFork)
   {
     pid_t pid;
@@ -213,7 +234,7 @@ static void Exec(commandT* cmd, bool forceFork)
       }
       else
       {
-        int status
+        int status;
         waitpid(pid, &status, 0); // dis line be important and might need some change
       }
 
