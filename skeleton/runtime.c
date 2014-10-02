@@ -207,10 +207,17 @@ static void Exec(commandT* cmd, bool forceFork)
     if (pid != -1)
     {
       if (pid == 0)
+      {
         execv(cmd->name, cmd->argv);
-    }
+        exit(2);
+      }
+      else
+      {
+        int status
+        waitpid(pid, &status, 0); // dis line be important and might need some change
+      }
 
-    waitpid(pid, NULL, 0); // dis line be important and might need some change
+    }
   }
 }
 
