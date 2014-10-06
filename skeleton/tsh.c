@@ -66,6 +66,7 @@ static void sig(int);
 
 int main (int argc, char *argv[])
 {
+  // printf("in main...\n");
   /* Initialize command buffer */
   char* cmdLine = malloc(sizeof(char*)*BUFSIZE);
 
@@ -102,9 +103,66 @@ int main (int argc, char *argv[])
 
 static void sig(int signo)
 {
-  printf("FOUND A SIGNAL :D\n");
-  int status;
-  waitpid(-1, &status, WNOHANG);
-  
+  printf("in sig...\n");
+  int pid = getpid();
+  int status, wpid;
+  // printf("pid:%d ppid: %d\n", pid, getppid());
+
+  switch(signo){
+    case SIGINT:
+      // stuck in an endless loop
+      printf("%d SIGINT signal in tsh\n", pid);
+      // if process is FG then send signal to its whole process group
+      if (kill(pid, SIGINT) == 0)
+      {
+        printf("kill successfully\n");
+      }
+      // delete job from job list
+      break;
+    
+    case SIGTSTP:
+      // stuck in an endless loop
+      printf("%d SIGTSTP signal in tsh\n", pid);
+      // if process is FG then send signal to its whole process group
+      if (pid > 0)
+      {
+        UpdateJobs(pid,"ST");
+        kill(-pid, SIGTSTP);
+      }
+      break;
+
+    case SIGCHLD:
+      // printf("in sigchld...\n");
+      do
+      {
+        wpid = waitpid(-1,&status,WNOHANG | WUNTRACED);
+        // printf("wpid:%d status:%d\n", wpid, status);
+        // printf("in sigchld while loop..\n");
+        if (WIFEXITED(status))
+        {
+          // child ended normally
+          // printf("in child end normally..\n");
+          UpdateJobs(wpid, "RM");
+        }
+        else if (WIFSIGNALED(status))
+        {
+          // child ended by another process, SIGINT = 2
+          // printf("in child end by process..\n");
+          if (WTERMSIG(status)==2)
+          {
+            UpdateJobs(wpid, "RM");
+          }
+        }
+        else if (WIFSTOPPED(status))
+        {
+          // printf("in child stop..\n");
+          UpdateJobs(wpid,"ST");
+        } 
+      } while(wpid>0);
+
+      break;
+    default:
+      break;
+  }  
 }
 

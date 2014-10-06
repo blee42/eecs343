@@ -48,6 +48,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <ctype.h>
 
 /************Private include**********************************************/
 #include "runtime.h"
@@ -66,11 +67,15 @@
 
 typedef struct bgjob_l {
   pid_t pid;
+  int jid;
+  char* state;
+  char* cmdline;
   struct bgjob_l* next;
 } bgjobL;
 
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
+int nextjid = 1;
 
 /************Function Prototypes******************************************/
 /* run command */
@@ -85,6 +90,16 @@ static void Exec(commandT*, bool);
 static void RunBuiltInCmd(commandT*);
 /* checks whether a command is a builtin command */
 static bool IsBuiltIn(char*);
+/* adds jobs to the job table */
+static int AddJob(pid_t pid, char* state, char* cmdline);
+/* wait for process with pid to no longer be in the foreground */
+static void WaitFg(int jid);
+/* find job with jid and return job */
+static bgjobL* FindJobByJid(int jid);
+/* find job with pid and return job */
+static bgjobL* FindJobByPid(pid_t pid);
+/* debug function to print jobs */
+void PrintJobs();
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
@@ -119,55 +134,59 @@ void RunCmdFork(commandT* cmd, bool fork)
 
 void RunCmdBg(commandT* cmd)
 {
-  pid_t pid;
-  pid = fork();
+  bgjobL* job;
+  char* id = cmd->argv[1];
+  char* command = cmd->argv[0];
 
-  if (pid != -1)
+  // find job in list
+  if (id == NULL)
   {
-    if (pid == 0)
+    printf("No id supplied\n");
+    return;
+  }
+  else if (id[0] == '%')
+  {
+    // printf("This is a job id\n");
+    job = FindJobByJid(atoi(id));
+    if (job == NULL)
     {
-      execv(cmd->name, cmd->argv);
-      exit(2);
+      printf("No job in job list\n");
+      return;
     }
-    else
+  }
+  else if (id - '0')
+  {
+    // printf("This is a pid\n");
+    pid_t pid = atoi(id);
+    job = FindJobByPid(pid);
+    if (job == NULL)
     {
-      bgjobL* current = bgjobs;
-      printf("[1] %d\n", pid);
-
-      bgjobL* newJob = (bgjobL*) malloc(sizeof(bgjobL));
-      newJob->pid = pid;
-      newJob->next = NULL;
-
-      int length = 1; // debug
-
-      if (current == NULL)
-      {
-        bgjobs = newJob;
-      }
-      else
-      {
-        while (current->next != NULL)
-        {
-          current = current->next;
-          length++;
-        }
-        current->next = newJob;
-      }
-
-      int i;
-      bgjobL* debug = bgjobs;
-      for(i = 1; i <= length; i++)
-      {
-        printf("PROC[%d]: %d\n", i, debug->pid);
-        debug = debug->next;
-      }
-
-
-
-
-      //int status;
-      //waitpid(pid, &status, WNOHANG); // dis line be important and might need some change
+      printf("No job in job list\n");
+      return;
     }
+  }
+  else
+  {
+    printf("Error in the command\n");
+    return;
+  }
+
+  // send SIGCONT signal to the specified process group
+  int ret = kill(-(job->pid),SIGCONT);
+  if(ret < 0)
+  {
+    printf("Error in kill\n");
+  }
+
+  // change the state of the jobs
+  if (strcmp(command,"fg") == 0)
+  {
+    job->state = "FG";
+    // wait?
+  }
+  else
+  {
+    job->state = "BG";
   }
 }
 
@@ -248,49 +267,126 @@ static bool ResolveExternalCmd(commandT* cmd)
 
 static void Exec(commandT* cmd, bool forceFork)
 {
-  if (cmd -> bg == 1)
+  // printf("in exec...\n");
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGCHLD);
+  sigprocmask(SIG_BLOCK, &mask, NULL);
+
+  // if there is an ampersand
+  if (cmd->bg == 1)
   {
-    RunCmdBg(cmd);
-    return;
-  }
-  if (forceFork)
-  {
+    // background process
     pid_t pid;
     pid = fork();
 
-    if (pid != -1)
+    if (pid == 0)
     {
-      if (pid == 0)
+      // child process
+      setpgid(0,0);
+      sigprocmask(SIG_UNBLOCK, &mask, NULL);
+      if (execv(cmd->name, cmd->argv) == -1)
       {
-        execv(cmd->name, cmd->argv);
+        perror("execv");
         exit(2);
       }
-      else
-      {
-        int status;
-        waitpid(pid, &status, 0); // dis line be important and might need some change
-      }
-
+    return; 
     }
+    else
+    {
+      // parent process
+      int jid = AddJob(pid,"BG",cmd->cmdline);
+      printf("[%d]  %d\n",jid,pid);
+      sigprocmask(SIG_UNBLOCK, &mask, NULL);
+    }
+    return;
+  }
+  // else if this is a normal process
+  else
+  {
+    // foreground process
+    pid_t pid;
+    pid = fork();
+
+    if (pid == 0)
+    {
+      // child process
+      setpgid(0,0);
+      sigprocmask(SIG_UNBLOCK, &mask, NULL);
+      if (execv(cmd->name, cmd->argv) == -1)
+      {
+        perror("execv");
+        exit(2);
+      } 
+      return;
+    }
+    else
+    {
+      // parent process
+      // int jid = AddJob(pid,"FG");
+      sigprocmask(SIG_UNBLOCK, &mask, NULL);
+      // WaitFg(pid);
+      int status;
+      waitpid(pid, &status, 0);
+    }
+    return;
   }
 }
 
 static bool IsBuiltIn(char* cmd)
 {
-  return FALSE;     
+  if (strcmp(cmd, "bg") == 0 || strcmp(cmd, "fg") == 0 || strcmp(cmd, "jobs") == 0 || strcmp(cmd, "cd") == 0)
+  {
+    return TRUE;
+  }
+  else
+  {
+    return FALSE;
+  }    
 }
 
 
 static void RunBuiltInCmd(commandT* cmd)
 {
-  // TODO
+  char* command = cmd->argv[0];
+  printf("%s\n",command);
+
+  if (strcmp(command,"bg") == 0 || strcmp(command,"fg") == 0)
+  {
+    printf("bg and fg command runs here\n");
+    RunCmdBg(cmd);
+  }
+  else if (strcmp(command,"jobs") == 0)
+  {
+    printf("jobs command runs here\n");
+  }
+  else if (strcmp(command,"cd") == 0)
+  {
+    printf("cd command runs here\n");
+  }
+  else
+  {
+    printf("not one of the specified commands\n");
+  }
 }
 
-void CheckJobs()
+static void WaitFg(int jid)
 {
-  // TODO
+  bgjobL* job = NULL;
+  bgjobL* ret = FindJobByJid(jid);
+  if (ret != NULL)
+  {
+    while (job != NULL && strcmp(job->state,"FG"))
+    {
+      sleep(0);
+    } 
+  }
+  else
+  {
+    printf("could not find job\n");
+  }
+  return;
 }
-
 
 commandT* CreateCmdT(int n)
 {
@@ -317,3 +413,143 @@ void ReleaseCmdT(commandT **cmd){
     if((*cmd)->argv[i] != NULL) free((*cmd)->argv[i]);
   free(*cmd);
 }
+
+/* Job Table Functions */
+int AddJob(pid_t pid, char* state, char* cmdline)
+{
+  bgjobL* current = bgjobs;
+  bgjobL* newJob = (bgjobL*) malloc(sizeof(bgjobL));
+  newJob->pid = pid;
+  newJob->jid = nextjid;
+  newJob->state = state;
+  newJob->cmdline = cmdline;
+  newJob->next = NULL;
+
+  nextjid = nextjid+1;
+
+  if (current == NULL)
+  {
+    bgjobs = newJob;
+  }
+  else
+  {
+    while (current->next != NULL)
+    {
+      current = current->next;
+    }
+    current->next = newJob;
+  }
+  return newJob->jid;
+}
+
+bgjobL* FindJobByJid(int jid)
+{
+  bgjobL* current = bgjobs;
+  if (current == NULL)
+  {
+    return NULL;
+  }
+  else
+  {
+    do
+    {
+      if (current->jid == jid)
+      {
+        return current;
+      }
+      else
+      {
+        current = current->next;
+      }
+    } while(current != NULL);
+    return NULL;
+  }
+}
+
+bgjobL* FindJobByPid(pid_t pid)
+{
+  // printf("in findjobbypid...\n");
+  bgjobL* current = bgjobs;
+  if (current == NULL)
+  {
+    // printf("current is null\n");
+    return NULL;
+  }
+  else
+  {
+    do
+    {
+      // printf("in do while loop...\n");
+      if (current->pid == pid)
+      {
+        return current;
+      }
+      else
+      {
+        current = current->next;
+      }
+    } while(current != NULL);
+    return NULL;
+  }
+}
+
+void CheckJobs()
+{
+  bgjobL* current = bgjobs;
+  bgjobL* prev = NULL;
+  if (current != NULL)
+  {
+    do
+    {
+      if (strcmp(current->state,"RM") == 0)
+      {
+        printf("[%d]+  Done          %s\n", current->jid,current->cmdline);
+        if (prev == NULL)
+        {
+          bgjobs = current->next;
+        }
+        else
+        {
+          prev->next = current->next;
+        }
+        // REMOVE COMMAND STRUCT?
+      }
+      current = current->next;
+      prev = current;
+    } while (current != NULL);
+    // printf("finished checking job list...\n");
+  }
+}
+
+void UpdateJobs(pid_t pid, char* state)
+{
+  // printf("in updatejobs...\n");
+  // printf("pid: %d\n", pid);
+  // PrintJobs();
+  bgjobL* job;
+  job = FindJobByPid(pid);
+  if (job != NULL)
+  {
+    // printf("in updatejobs, change state: %s\n", state);
+    job->state = state;
+    // printf("finished updating jobs\n");
+  }
+}
+
+void PrintJobs()
+{
+  printf("<<<<<<<PRINT JOBS>>>>>>>>\n");
+  bgjobL* current = bgjobs;
+  if (current != NULL)
+  {
+    do
+    {
+      printf("pid: %d, jid: %d, state: %s\n",current->pid, current->jid, current->state );
+      current = current->next;
+    } while (current != NULL);
+    // printf("finished checking job list...\n");
+  }
+  printf("1 NULL job\n");
+  printf("<<<<<<<END PRINT JOBS>>>>>>>>\n");
+}
+
