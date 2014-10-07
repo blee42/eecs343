@@ -18,8 +18,8 @@
 ###############################################################################
 
 # handin info
-TEAM = bal312
-VERSION = 1
+TEAM = kjc004-bal312
+VERSION = `date +%Y%m%d%H%M%S`
 PROJ = tsh
 
 CC = gcc
