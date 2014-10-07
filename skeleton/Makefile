@@ -18,7 +18,7 @@
 ###############################################################################
 
 # handin info
-TEAM = `kevinscrew`
+TEAM = kjc004-bal312
 VERSION = `date +%Y%m%d%H%M%S`
 PROJ = tsh
 
