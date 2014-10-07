@@ -77,7 +77,7 @@ int main (int argc, char *argv[])
 
   while (!forceExit) /* repeat forever */
   {
-    printf("tsh> ");
+    // printf("tsh> ");
     /* read command line */
     getCommandLine(&cmdLine, BUFSIZE);
 
@@ -103,7 +103,7 @@ int main (int argc, char *argv[])
 
 static void sig(int signo)
 {
-  printf("in sig...\n");
+  // printf("in sig...\n");
   int pid = getpid();
   int status, wpid;
   // printf("pid:%d ppid: %d\n", pid, getppid());
@@ -113,7 +113,7 @@ static void sig(int signo)
       // stuck in an endless loop
       printf("%d SIGINT signal in tsh\n", pid);
       // if process is FG then send signal to its whole process group
-      if (kill(pid, SIGINT) == 0)
+      if (kill(-pid, SIGINT) == 0)
       {
         printf("kill successfully\n");
       }
