@@ -296,7 +296,7 @@ static void Exec(commandT* cmd, bool forceFork)
     {
       // parent process
       int jid = AddJob(pid,"BG",cmd->cmdline);
-      printf("[%d]  %d\n",jid,pid);
+      // printf("[%d]  %d\n",jid,pid);
       sigprocmask(SIG_UNBLOCK, &mask, NULL);
     }
     return;
@@ -349,11 +349,11 @@ static bool IsBuiltIn(char* cmd)
 static void RunBuiltInCmd(commandT* cmd)
 {
   char* command = cmd->argv[0];
-  printf("%s\n",command);
+  // printf("%s\n",command);
 
   if (strcmp(command,"bg") == 0 || strcmp(command,"fg") == 0)
   {
-    printf("bg and fg command runs here\n");
+    // printf("bg and fg command runs here\n");
     RunCmdBg(cmd);
   }
   else if (strcmp(command,"jobs") == 0)
@@ -503,7 +503,7 @@ void CheckJobs()
     {
       if (strcmp(current->state,"RM") == 0)
       {
-        printf("[%d]+  Done          %s\n", current->jid,current->cmdline);
+        printf("[%d]  Done          %s\n", current->jid,current->cmdline);
         if (prev == NULL)
         {
           bgjobs = current->next;

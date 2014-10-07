@@ -18,8 +18,8 @@
 ###############################################################################
 
 # handin info
-TEAM = `kevinscrew`
-VERSION = `date +%Y%m%d%H%M%S`
+TEAM = bal312
+VERSION = 1
 PROJ = tsh
 
 CC = gcc
