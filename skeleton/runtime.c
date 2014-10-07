@@ -326,6 +326,7 @@ static void Exec(commandT* cmd, bool forceFork)
     {
       // parent process
       // int jid = AddJob(pid,"FG");
+      fg_pid = pid;
       sigprocmask(SIG_UNBLOCK, &mask, NULL);
       // WaitFg(pid);
       int status;

@@ -65,6 +65,7 @@ typedef struct command_t
 } commandT;
 
 /************Global Variables*********************************************/
+pid_t fg_pid;
 
 /***********************************************************************
  *  Title: Force a program exit 

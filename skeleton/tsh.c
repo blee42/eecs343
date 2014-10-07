@@ -104,30 +104,30 @@ int main (int argc, char *argv[])
 static void sig(int signo)
 {
   // printf("in sig...\n");
-  int pid = getpid();
   int status, wpid;
   // printf("pid:%d ppid: %d\n", pid, getppid());
 
   switch(signo){
     case SIGINT:
       // stuck in an endless loop
-      printf("%d SIGINT signal in tsh\n", pid);
+      printf("%d SIGINT signal in tsh\n", fg_pid);
       // if process is FG then send signal to its whole process group
-      if (kill(-pid, SIGINT) == 0)
+      if (fg_pid != -1)
       {
-        printf("kill successfully\n");
+        kill(-fg_pid, SIGINT);
       }
-      RemoveJob(pid);
+
+      RemoveJob(fg_pid);
       break;
     
     case SIGTSTP:
       // stuck in an endless loop
-      printf("%d SIGTSTP signal in tsh\n", pid);
+      printf("%d SIGTSTP signal in tsh\n", fg_pid);
       // if process is FG then send signal to its whole process group
-      if (pid > 0)
+      if (fg_pid > 0)
       {
-        UpdateJobs(pid,"ST");
-        kill(-pid, SIGTSTP);
+        UpdateJobs(fg_pid,"ST");
+        kill(-fg_pid, SIGTSTP);
       }
       break;
 
