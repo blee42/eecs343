@@ -549,6 +549,7 @@ void ReleaseJob(bgjobL **job)
 
 int RemoveJob(pid_t pid)
 {
+  printf("in remove job..\n");
   bgjobL* current = bgjobs;
   bgjobL* prev;
   if (current == NULL)
@@ -558,6 +559,7 @@ int RemoveJob(pid_t pid)
   }
   else if (current->pid == pid)
   {
+    printf("removing first in the list\n");
     // remove first in list
     bgjobs = current->next;
     ReleaseJob(&current);
@@ -569,6 +571,7 @@ int RemoveJob(pid_t pid)
     current = current->next;
     while (current->next != NULL)
     {
+      printf("in the remove job loop\n");
       if (current->pid == pid)
       {
         prev->next = current->next;
@@ -576,6 +579,7 @@ int RemoveJob(pid_t pid)
         ReleaseJob(&current);
         return 0;
       }
+      current = current->next;
     }
     // at the end and did not remove
     printf("Could not find %d in job list\n",pid);
