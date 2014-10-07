@@ -98,6 +98,8 @@ static void WaitFg(int jid);
 static bgjobL* FindJobByJid(int jid);
 /* find job with pid and return job */
 static bgjobL* FindJobByPid(pid_t pid);
+/* free job memory */
+static void ReleaseJob(bgjobL **job);
 /* debug function to print jobs */
 void PrintJobs();
 /************External Declaration*****************************************/
@@ -533,6 +535,51 @@ void UpdateJobs(pid_t pid, char* state)
     // printf("in updatejobs, change state: %s\n", state);
     job->state = state;
     // printf("finished updating jobs\n");
+  }
+}
+
+void ReleaseJob(bgjobL **job)
+{
+  // if((*job)->pid != NULL) free((*job)->pid);
+  // if((*job)->jid != NULL) free((*job)->jid);
+  if((*job)->state != NULL) free((*job)->state);
+  if((*job)->cmdline != NULL) free((*job)->cmdline);
+  free(*job);
+}
+
+int RemoveJob(pid_t pid)
+{
+  bgjobL* current = bgjobs;
+  bgjobL* prev;
+  if (current == NULL)
+  {
+    printf("No jobs in job list to remove\n");
+    return -1;
+  }
+  else if (current->pid == pid)
+  {
+    // remove first in list
+    bgjobs = current->next;
+    ReleaseJob(&current);
+    return 0;
+  }
+  else
+  {
+    prev = bgjobs;
+    current = current->next;
+    while (current->next != NULL)
+    {
+      if (current->pid == pid)
+      {
+        prev->next = current->next;
+        current = current->next;
+        ReleaseJob(&current);
+        return 0;
+      }
+    }
+    // at the end and did not remove
+    printf("Could not find %d in job list\n",pid);
+    return -1;
   }
 }
 

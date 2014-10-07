@@ -117,7 +117,7 @@ static void sig(int signo)
       {
         printf("kill successfully\n");
       }
-      // delete job from job list
+      RemoveJob(pid);
       break;
     
     case SIGTSTP:

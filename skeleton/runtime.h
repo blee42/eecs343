@@ -183,6 +183,15 @@ EXTERN void CheckJobs();
  ***********************************************************************/
 EXTERN void UpdateJobs(pid_t pid, char* state);
 
+/***********************************************************************
+ *  Title: Remove the jobs 
+ * ---------------------------------------------------------------------
+ *    Purpose: Removes the job from the list of background jobs.
+ *    Input: pid
+ *    Output: an int to notify success 
+ ***********************************************************************/
+EXTERN int RemoveJob(pid_t pid);
+
 /************External Declaration*****************************************/
 
 /**************Definition***************************************************/
