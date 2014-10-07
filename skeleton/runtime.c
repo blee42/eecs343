@@ -512,7 +512,7 @@ void CheckJobs()
         {
           prev->next = current->next;
         }
-        // REMOVE COMMAND STRUCT?
+        // REMOVE from job list
       }
       current = current->next;
       prev = current;
