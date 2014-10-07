@@ -358,7 +358,7 @@ static void RunBuiltInCmd(commandT* cmd)
   }
   else if (strcmp(command,"jobs") == 0)
   {
-    printf("jobs command runs here\n");
+    PrintJobs();
   }
   else if (strcmp(command,"cd") == 0)
   {
@@ -366,7 +366,7 @@ static void RunBuiltInCmd(commandT* cmd)
   }
   else
   {
-    printf("not one of the specified commands\n");
+    printf("This should never happen. Whoops :( :(\n");
   }
 }
 
@@ -538,18 +538,28 @@ void UpdateJobs(pid_t pid, char* state)
 
 void PrintJobs()
 {
-  printf("<<<<<<<PRINT JOBS>>>>>>>>\n");
   bgjobL* current = bgjobs;
-  if (current != NULL)
+  while (current != NULL)
   {
-    do
+    const char* state;
+    if (strcmp(current->state, "BG") == 0)
     {
-      printf("pid: %d, jid: %d, state: %s\n",current->pid, current->jid, current->state );
-      current = current->next;
-    } while (current != NULL);
-    // printf("finished checking job list...\n");
+      state = "Running";
+    }
+    else if (strcmp(current->state, "ST") == 0)
+    {
+      state = "Stopped";
+    }
+    else if (strcmp(current->state, "RM") == 0)
+    {
+      state = "Done";
+    }
+    else
+    {
+      state = "You dun goofed.";
+    }
+    printf("[%d]   %s                 %s &\n", current->jid, state, current->cmdline);
+    current = current->next;
   }
-  printf("1 NULL job\n");
-  printf("<<<<<<<END PRINT JOBS>>>>>>>>\n");
 }
 
