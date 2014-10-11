@@ -583,7 +583,7 @@ void CheckJobs()
     {
       if (strcmp(current->state,"RM") == 0)
       {
-        printf("[%d]  Done          %s\n", current->jid,current->cmdline);
+        printf("[%d]    Done          %s\n", current->jid,current->cmdline);
         if (prev == NULL)
         {
           bgjobs = current->next;
@@ -603,16 +603,12 @@ void CheckJobs()
 
 void UpdateJobs(pid_t pid, char* state)
 {
-  // printf("in updatejobs...\n");
-  // printf("pid: %d\n", pid);
-  // PrintJobs();
   bgjobL* job;
   job = FindJobByPid(pid);
   if (job != NULL)
   {
-    // printf("in updatejobs, change state: %s\n", state);
     job->state = state;
-    // printf("finished updating jobs\n");
+    // printf("[%d]   Done          %s\n", job->jid,job->cmdline);
   }
 }
 
@@ -680,6 +676,7 @@ void PrintJobs()
     else if (strcmp(current->state, "RM") == 0)
     {
       state = "Done";
+      continue;
     }
     else
     {
