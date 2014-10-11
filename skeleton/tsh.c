@@ -77,7 +77,7 @@ int main (int argc, char *argv[])
 
   while (!forceExit) /* repeat forever */
   {
-    printf("tsh> ");
+    // printf("tsh> ");
     /* read command line */
     getCommandLine(&cmdLine, BUFSIZE);
 
@@ -108,26 +108,25 @@ static void sig(int signo)
   // printf("pid:%d ppid: %d\n", pid, getppid());
 
   switch(signo){
+
+    // kills the foreground process via signal to its process group
     case SIGINT:
-      // stuck in an endless loop
-      printf("%d SIGINT signal in tsh\n", fg_pid);
-      // if process is FG then send signal to its whole process group
       if (fg_pid != -1)
       {
         kill(-fg_pid, SIGINT);
+        printf("%d\n", fg_pid);
       }
-
-      RemoveJob(fg_pid);
       break;
     
     case SIGTSTP:
       // stuck in an endless loop
       printf("%d SIGTSTP signal in tsh\n", fg_pid);
       // if process is FG then send signal to its whole process group
-      if (fg_pid > 0)
+      if (fg_pid != -1)
       {
-        UpdateJobs(fg_pid,"ST");
+        // UpdateJobs(fg_pid,"ST");
         kill(-fg_pid, SIGTSTP);
+        fg_pid = -1;
       }
       break;
 

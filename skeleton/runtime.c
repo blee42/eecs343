@@ -77,6 +77,8 @@ typedef struct bgjob_l {
 bgjobL *bgjobs = NULL;
 int nextjid = 1;
 
+pid_t fg_pid = NULL;
+
 /************Function Prototypes******************************************/
 /* run command */
 static void RunCmdFork(commandT*, bool);
@@ -99,7 +101,7 @@ static bgjobL* FindJobByJid(int jid);
 /* find job with pid and return job */
 static bgjobL* FindJobByPid(pid_t pid);
 /* free job memory */
-static void ReleaseJob(bgjobL **job);
+static void ReleaseJob(bgjobL *job);
 /* debug function to print jobs */
 void PrintJobs();
 /************External Declaration*****************************************/
@@ -275,7 +277,6 @@ static void Exec(commandT* cmd, bool forceFork)
   sigaddset(&mask, SIGCHLD);
   sigprocmask(SIG_BLOCK, &mask, NULL);
 
-  // if there is an ampersand
   if (cmd->bg == 1)
   {
     // background process
@@ -298,12 +299,11 @@ static void Exec(commandT* cmd, bool forceFork)
     {
       // parent process
       int jid = AddJob(pid,"BG",cmd->cmdline);
-      // printf("[%d]  %d\n",jid,pid);
       sigprocmask(SIG_UNBLOCK, &mask, NULL);
+      // printf("[%d] %d\n", jid, pid);
     }
     return;
   }
-  // else if this is a normal process
   else
   {
     // foreground process
@@ -428,7 +428,7 @@ int AddJob(pid_t pid, char* state, char* cmdline)
   newJob->cmdline = cmdline;
   newJob->next = NULL;
 
-  nextjid = nextjid+1;
+  nextjid += 1;
 
   if (current == NULL)
   {
@@ -500,52 +500,53 @@ void CheckJobs()
 {
   bgjobL* current = bgjobs;
   bgjobL* prev = NULL;
-  if (current != NULL)
+
+  while (current != NULL)
   {
-    do
+    if (strcmp(current->state,"RM") == 0)
     {
-      if (strcmp(current->state,"RM") == 0)
+      printf("[%d]   Done          %s\n", current->jid,current->cmdline);
+
+      if (prev == NULL)
       {
-        printf("[%d]  Done          %s\n", current->jid,current->cmdline);
-        if (prev == NULL)
-        {
-          bgjobs = current->next;
-        }
-        else
-        {
-          prev->next = current->next;
-        }
-        // REMOVE from job list
+        bgjobs = current->next;
+        ReleaseJob(current);
+        current = bgjobs;
       }
-      current = current->next;
+      else
+      {
+        prev->next = current->next;
+        ReleaseJob(current);
+        current = prev->next;
+      }
+
+      // writes any pending text to STDOUT -- maybe move into releasejob?
+      fflush(stdout);
+    }
+    else
+    {
       prev = current;
-    } while (current != NULL);
-    // printf("finished checking job list...\n");
+      current = current->next;
+    }
   }
 }
 
 void UpdateJobs(pid_t pid, char* state)
 {
-  // printf("in updatejobs...\n");
-  // printf("pid: %d\n", pid);
-  // PrintJobs();
   bgjobL* job;
   job = FindJobByPid(pid);
+
   if (job != NULL)
   {
-    // printf("in updatejobs, change state: %s\n", state);
     job->state = state;
-    // printf("finished updating jobs\n");
   }
 }
 
-void ReleaseJob(bgjobL **job)
+void ReleaseJob(bgjobL* job)
 {
-  // if((*job)->pid != NULL) free((*job)->pid);
-  // if((*job)->jid != NULL) free((*job)->jid);
-  if((*job)->state != NULL) free((*job)->state);
-  if((*job)->cmdline != NULL) free((*job)->cmdline);
-  free(*job);
+  // free(job->state); this causes crashes, idk why
+  free(job->cmdline);
+  free(job);
 }
 
 int RemoveJob(pid_t pid)
@@ -563,7 +564,7 @@ int RemoveJob(pid_t pid)
     printf("removing first in the list\n");
     // remove first in list
     bgjobs = current->next;
-    ReleaseJob(&current);
+    ReleaseJob(current);
     return 0;
   }
   else
@@ -577,7 +578,7 @@ int RemoveJob(pid_t pid)
       {
         prev->next = current->next;
         current = current->next;
-        ReleaseJob(&current);
+        ReleaseJob(current);
         return 0;
       }
       current = current->next;
@@ -604,7 +605,7 @@ void PrintJobs()
     }
     else if (strcmp(current->state, "RM") == 0)
     {
-      state = "Done";
+      state = "Done   ";
     }
     else
     {
