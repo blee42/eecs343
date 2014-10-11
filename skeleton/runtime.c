@@ -49,6 +49,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <ctype.h>
+#include <unistd.h>
 
 /************Private include**********************************************/
 #include "runtime.h"
@@ -92,6 +93,8 @@ static void Exec(commandT*, bool);
 static void RunBuiltInCmd(commandT*);
 /* checks whether a command is a builtin command */
 static bool IsBuiltIn(char*);
+/* runs the cd command */
+static void RunCd(commandT* cmd);
 /* adds jobs to the job table */
 static int AddJob(pid_t pid, char* state, char* cmdline);
 /* wait for process with pid to no longer be in the foreground */
@@ -154,18 +157,18 @@ void RunCmdBg(commandT* cmd)
     job = FindJobByJid(atoi(id));
     if (job == NULL)
     {
-      printf("No job in job list\n");
+      // printf("No job in job list\n");
       return;
     }
   }
-  else if (id - '0')
+  else if (atoi(id))
   {
     // printf("This is a pid\n");
     pid_t pid = atoi(id);
     job = FindJobByPid(pid);
     if (job == NULL)
     {
-      printf("No job in job list\n");
+      // printf("No job in job list\n");
       return;
     }
   }
@@ -365,12 +368,87 @@ static void RunBuiltInCmd(commandT* cmd)
   }
   else if (strcmp(command,"cd") == 0)
   {
-    printf("cd command runs here\n");
+    RunCd(cmd);
   }
   else
   {
     printf("This should never happen. Whoops :( :(\n");
   }
+}
+
+static void RunCd(commandT* cmd)
+{
+  char* arg = cmd->argv[1];
+  char* path = malloc(sizeof(size_t)*100);
+  size_t size = 100;
+
+  // move to home directory
+  getcwd(path,size);
+  if (arg == NULL)
+  {
+    char* user = malloc(sizeof(char)*20);
+    char* newPath = malloc(sizeof(char)*100);
+    // getenv(home);
+    getlogin_r(user,size);
+    strcat(newPath,"/Users/");
+    strcat(newPath,user);
+    if (chdir(newPath) != 0)
+    {
+      printf("error in cd\n");
+    }
+    free(user);
+    free(newPath);
+  }
+  // move up one directory
+  else if (strcmp(arg,"..") == 0)
+  {
+    typedef struct dir_l {
+      char* dir;
+      struct dir_l* next;
+    } dirL;
+    dirL* head = NULL;
+    dirL* prev;
+
+    char* dir = strtok(path, "/");
+    char* newDir = malloc(sizeof(size_t)*100);
+    head->dir = dir;
+    prev = head;
+    dir = strtok(NULL, "/");
+    
+    while (dir != NULL)
+    {
+      dirL* ndir = malloc(sizeof(dirL));
+      ndir->dir = dir;
+      prev->next = ndir;
+      prev = ndir;
+      dir = strtok(NULL, "/");
+    }
+
+    dirL* cur = head;
+    while(cur->next != NULL)
+    {
+      strcat(newDir,"/");
+      strcat(newDir,cur->dir);
+      if (cur->dir != NULL) free(cur->dir);
+      dirL* temp = cur;
+      cur = cur->next;
+      free(temp);
+    }
+    if (chdir(newDir) != 0)
+    {
+      printf("error in cd\n");
+    }
+    free(newDir);
+  }
+  // move to given directory
+  else
+  {
+    if (chdir(arg) != 0)
+    {
+      printf("error in cd\n");
+    }
+  }
+  free(path);
 }
 
 static void WaitFg(int jid)
@@ -551,17 +629,17 @@ void ReleaseJob(bgjobL* job)
 
 int RemoveJob(pid_t pid)
 {
-  printf("in remove job..\n");
+  // printf("in remove job..\n");
   bgjobL* current = bgjobs;
   bgjobL* prev;
   if (current == NULL)
   {
-    printf("No jobs in job list to remove\n");
+    // printf("No jobs in job list to remove\n");
     return -1;
   }
   else if (current->pid == pid)
   {
-    printf("removing first in the list\n");
+    // printf("removing first in the list\n");
     // remove first in list
     bgjobs = current->next;
     ReleaseJob(current);
@@ -573,7 +651,7 @@ int RemoveJob(pid_t pid)
     current = current->next;
     while (current->next != NULL)
     {
-      printf("in the remove job loop\n");
+      // printf("in the remove job loop\n");
       if (current->pid == pid)
       {
         prev->next = current->next;
@@ -584,7 +662,7 @@ int RemoveJob(pid_t pid)
       current = current->next;
     }
     // at the end and did not remove
-    printf("Could not find %d in job list\n",pid);
+    // printf("Could not find %d in job list\n",pid);
     return -1;
   }
 }
@@ -606,6 +684,7 @@ void PrintJobs()
     else if (strcmp(current->state, "RM") == 0)
     {
       state = "Done   ";
+      continue; // maybe
     }
     else
     {
