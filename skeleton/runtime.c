@@ -49,6 +49,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <ctype.h>
+#include <unistd.h>
 
 /************Private include**********************************************/
 #include "runtime.h"
@@ -90,6 +91,8 @@ static void Exec(commandT*, bool);
 static void RunBuiltInCmd(commandT*);
 /* checks whether a command is a builtin command */
 static bool IsBuiltIn(char*);
+/* runs the cd command */
+static void RunCd(commandT* cmd);
 /* adds jobs to the job table */
 static int AddJob(pid_t pid, char* state, char* cmdline);
 /* wait for process with pid to no longer be in the foreground */
@@ -364,12 +367,87 @@ static void RunBuiltInCmd(commandT* cmd)
   }
   else if (strcmp(command,"cd") == 0)
   {
-    printf("cd command runs here\n");
+    RunCd(cmd);
   }
   else
   {
     printf("This should never happen. Whoops :( :(\n");
   }
+}
+
+static void RunCd(commandT* cmd)
+{
+  char* arg = cmd->argv[1];
+  char* path = malloc(sizeof(size_t)*100);
+  size_t size = 100;
+
+  // move to home directory
+  getcwd(path,size);
+  if (arg == NULL)
+  {
+    char* user = malloc(sizeof(char)*20);
+    char* newPath = malloc(sizeof(char)*100);
+    // getenv(home);
+    getlogin_r(user,size);
+    strcat(newPath,"/Users/");
+    strcat(newPath,user);
+    if (chdir(newPath) != 0)
+    {
+      printf("error in cd\n");
+    }
+    free(user);
+    free(newPath);
+  }
+  // move up one directory
+  else if (strcmp(arg,"..") == 0)
+  {
+    typedef struct dir_l {
+      char* dir;
+      struct dir_l* next;
+    } dirL;
+    dirL* head = NULL;
+    dirL* prev;
+
+    char* dir = strtok(path, "/");
+    char* newDir = malloc(sizeof(size_t)*100);
+    head->dir = dir;
+    prev = head;
+    dir = strtok(NULL, "/");
+    
+    while (dir != NULL)
+    {
+      dirL* ndir = malloc(sizeof(dirL));
+      ndir->dir = dir;
+      prev->next = ndir;
+      prev = ndir;
+      dir = strtok(NULL, "/");
+    }
+
+    dirL* cur = head;
+    while(cur->next != NULL)
+    {
+      strcat(newDir,"/");
+      strcat(newDir,cur->dir);
+      if (cur->dir != NULL) free(cur->dir);
+      dirL* temp = cur;
+      cur = cur->next;
+      free(temp);
+    }
+    if (chdir(newDir) != 0)
+    {
+      printf("error in cd\n");
+    }
+    free(newDir);
+  }
+  // move to given directory
+  else
+  {
+    if (chdir(arg) != 0)
+    {
+      printf("error in cd\n");
+    }
+  }
+  free(path);
 }
 
 static void WaitFg(int jid)
@@ -540,8 +618,6 @@ void UpdateJobs(pid_t pid, char* state)
 
 void ReleaseJob(bgjobL **job)
 {
-  // if((*job)->pid != NULL) free((*job)->pid);
-  // if((*job)->jid != NULL) free((*job)->jid);
   if((*job)->state != NULL) free((*job)->state);
   if((*job)->cmdline != NULL) free((*job)->cmdline);
   free(*job);
