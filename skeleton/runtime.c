@@ -155,18 +155,18 @@ void RunCmdBg(commandT* cmd)
     job = FindJobByJid(atoi(id));
     if (job == NULL)
     {
-      printf("No job in job list\n");
+      // printf("No job in job list\n");
       return;
     }
   }
-  else if (id - '0')
+  else if (atoi(id))
   {
     // printf("This is a pid\n");
     pid_t pid = atoi(id);
     job = FindJobByPid(pid);
     if (job == NULL)
     {
-      printf("No job in job list\n");
+      // printf("No job in job list\n");
       return;
     }
   }
@@ -583,6 +583,7 @@ void CheckJobs()
     {
       if (strcmp(current->state,"RM") == 0)
       {
+        fflush(stdout);
         printf("[%d]    Done          %s\n", current->jid,current->cmdline);
         if (prev == NULL)
         {
@@ -608,6 +609,7 @@ void UpdateJobs(pid_t pid, char* state)
   if (job != NULL)
   {
     job->state = state;
+    // fflush(stdout);
     // printf("[%d]   Done          %s\n", job->jid,job->cmdline);
   }
 }
@@ -621,17 +623,17 @@ void ReleaseJob(bgjobL **job)
 
 int RemoveJob(pid_t pid)
 {
-  printf("in remove job..\n");
+  // printf("in remove job..\n");
   bgjobL* current = bgjobs;
   bgjobL* prev;
   if (current == NULL)
   {
-    printf("No jobs in job list to remove\n");
+    // printf("No jobs in job list to remove\n");
     return -1;
   }
   else if (current->pid == pid)
   {
-    printf("removing first in the list\n");
+    // printf("removing first in the list\n");
     // remove first in list
     bgjobs = current->next;
     ReleaseJob(&current);
@@ -643,7 +645,7 @@ int RemoveJob(pid_t pid)
     current = current->next;
     while (current->next != NULL)
     {
-      printf("in the remove job loop\n");
+      // printf("in the remove job loop\n");
       if (current->pid == pid)
       {
         prev->next = current->next;
@@ -654,7 +656,7 @@ int RemoveJob(pid_t pid)
       current = current->next;
     }
     // at the end and did not remove
-    printf("Could not find %d in job list\n",pid);
+    // printf("Could not find %d in job list\n",pid);
     return -1;
   }
 }

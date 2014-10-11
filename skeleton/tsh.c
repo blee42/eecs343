@@ -111,7 +111,7 @@ static void sig(int signo)
   switch(signo){
     case SIGINT:
       // stuck in an endless loop
-      printf("%d SIGINT signal in tsh\n", pid);
+      // printf("%d SIGINT signal in tsh\n", pid);
       // if process is FG then send signal to its whole process group
       if (kill(-pid, SIGINT) == 0)
       {
@@ -122,7 +122,7 @@ static void sig(int signo)
     
     case SIGTSTP:
       // stuck in an endless loop
-      printf("%d SIGTSTP signal in tsh\n", pid);
+      // printf("%d SIGTSTP signal in tsh\n", pid);
       // if process is FG then send signal to its whole process group
       if (pid > 0)
       {
