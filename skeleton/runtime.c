@@ -79,6 +79,7 @@ bgjobL *bgjobs = NULL;
 int nextjid = 1;
 
 pid_t fg_pid = NULL;
+bgjobL *fgjob = NULL;
 
 /************Function Prototypes******************************************/
 /* run command */
@@ -301,7 +302,7 @@ static void Exec(commandT* cmd, bool forceFork)
     else
     {
       // parent process
-      int jid = AddJob(pid,BACKGROUND,cmd->cmdline);
+      int jid = AddJob(pid, BACKGROUND, cmd->cmdline);
       sigprocmask(SIG_UNBLOCK, &mask, NULL);
       // printf("[%d] %d\n", jid, pid);
     }
@@ -328,8 +329,8 @@ static void Exec(commandT* cmd, bool forceFork)
     else
     {
       // parent process
-      // int jid = AddJob(pid, FOREGROUND);
       fg_pid = pid;
+      AddJob(pid, FOREGROUND, cmd->cmdline);
       sigprocmask(SIG_UNBLOCK, &mask, NULL);
       // WaitFg(pid);
       int status;
@@ -506,7 +507,10 @@ int AddJob(pid_t pid, int state, char* cmdline)
   newJob->cmdline = cmdline;
   newJob->next = NULL;
 
-  nextjid += 1;
+  if (state == BACKGROUND) // make sure this is all correct
+  {
+    nextjid += 1; 
+  }
 
   if (current == NULL)
   {
@@ -549,18 +553,15 @@ bgjobL* FindJobByJid(int jid)
 
 bgjobL* FindJobByPid(pid_t pid)
 {
-  // printf("in findjobbypid...\n");
   bgjobL* current = bgjobs;
   if (current == NULL)
   {
-    // printf("current is null\n");
     return NULL;
   }
   else
   {
     do
     {
-      // printf("in do while loop...\n");
       if (current->pid == pid)
       {
         return current;
@@ -570,6 +571,7 @@ bgjobL* FindJobByPid(pid_t pid)
         current = current->next;
       }
     } while(current != NULL);
+
     return NULL;
   }
 }
@@ -583,7 +585,14 @@ void CheckJobs()
   {
     if (current->state == DONE)
     {
-      printf("[%d]   Done          %s\n", current->jid,current->cmdline);
+      if (current->pid != fg_pid)
+      {
+        printf("[%d]   Done          %s\n", current->jid,current->cmdline);
+      }
+      else
+      {
+        fg_pid = -1;
+      }
 
       if (prev == NULL)
       {

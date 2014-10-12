@@ -103,7 +103,7 @@ int main (int argc, char *argv[])
 
 static void sig(int signo)
 {
-  // printf("in sig...\n");
+  printf("in sig...\n");
   int status, wpid;
   // printf("pid:%d ppid: %d\n", pid, getppid());
 
@@ -111,31 +111,29 @@ static void sig(int signo)
 
     // kills the foreground process via signal to its process group
     case SIGINT:
-      if (fg_pid != -1)
+      if (fg_pid >= 0)
       {
         kill(-fg_pid, SIGINT);
-        printf("%d\n", fg_pid);
       }
       break;
     
     case SIGTSTP:
-      // stuck in an endless loop
+      // stuck in an endless loop -- goes to SIGCHLD and attempts to updateJobs with wpid == 0
       printf("%d SIGTSTP signal in tsh\n", fg_pid);
       // if process is FG then send signal to its whole process group
-      if (fg_pid != -1)
+      if (fg_pid >= 0)
       {
         // UpdateJobs(fg_pid, STOPPED);
         kill(-fg_pid, SIGTSTP);
-        fg_pid = -1;
+        // fg_pid = -1;
       }
       break;
 
     case SIGCHLD:
-      // printf("in sigchld...\n");
       do
       {
-        wpid = waitpid(-1,&status,WNOHANG | WUNTRACED);
-        // printf("wpid:%d status:%d\n", wpid, status);
+        wpid = waitpid(-1, &status, WNOHANG | WUNTRACED);
+        printf("wpid:%d status:%d\n", wpid, status);
         // printf("in sigchld while loop..\n");
         if (WIFEXITED(status))
         {
@@ -154,7 +152,7 @@ static void sig(int signo)
         }
         else if (WIFSTOPPED(status))
         {
-          // printf("in child stop..\n");
+          printf("in child stop..\n");
           UpdateJobs(wpid, STOPPED);
         } 
       } while(wpid>0);
