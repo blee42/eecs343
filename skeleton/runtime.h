@@ -66,6 +66,10 @@ typedef struct command_t
 
 /************Global Variables*********************************************/
 pid_t fg_pid;
+#define FOREGROUND 0
+#define BACKGROUND 1
+#define STOPPED 2
+#define DONE 3
 
 /***********************************************************************
  *  Title: Force a program exit 
@@ -182,7 +186,7 @@ EXTERN void CheckJobs();
  *    Input: pid and the job state
  *    Output: void 
  ***********************************************************************/
-EXTERN void UpdateJobs(pid_t pid, char* state);
+EXTERN void UpdateJobs(pid_t pid, int state);
 
 /***********************************************************************
  *  Title: Remove the jobs 

@@ -69,7 +69,7 @@
 typedef struct bgjob_l {
   pid_t pid;
   int jid;
-  char* state;
+  int state;
   char* cmdline;
   struct bgjob_l* next;
 } bgjobL;
@@ -96,7 +96,7 @@ static bool IsBuiltIn(char*);
 /* runs the cd command */
 static void RunCd(commandT* cmd);
 /* adds jobs to the job table */
-static int AddJob(pid_t pid, char* state, char* cmdline);
+static int AddJob(pid_t pid, int state, char* cmdline);
 /* wait for process with pid to no longer be in the foreground */
 static void WaitFg(int jid);
 /* find job with jid and return job */
@@ -188,12 +188,12 @@ void RunCmdBg(commandT* cmd)
   // change the state of the jobs
   if (strcmp(command,"fg") == 0)
   {
-    job->state = "FG";
+    job->state = FOREGROUND;
     // wait?
   }
   else
   {
-    job->state = "BG";
+    job->state = BACKGROUND;
   }
 }
 
@@ -301,7 +301,7 @@ static void Exec(commandT* cmd, bool forceFork)
     else
     {
       // parent process
-      int jid = AddJob(pid,"BG",cmd->cmdline);
+      int jid = AddJob(pid,BACKGROUND,cmd->cmdline);
       sigprocmask(SIG_UNBLOCK, &mask, NULL);
       // printf("[%d] %d\n", jid, pid);
     }
@@ -328,7 +328,7 @@ static void Exec(commandT* cmd, bool forceFork)
     else
     {
       // parent process
-      // int jid = AddJob(pid,"FG");
+      // int jid = AddJob(pid, FOREGROUND);
       fg_pid = pid;
       sigprocmask(SIG_UNBLOCK, &mask, NULL);
       // WaitFg(pid);
@@ -457,7 +457,7 @@ static void WaitFg(int jid)
   bgjobL* ret = FindJobByJid(jid);
   if (ret != NULL)
   {
-    while (job != NULL && strcmp(job->state,"FG"))
+    while (job != NULL && job->state == FOREGROUND) // should this be true or false?
     {
       sleep(0);
     } 
@@ -496,7 +496,7 @@ void ReleaseCmdT(commandT **cmd){
 }
 
 /* Job Table Functions */
-int AddJob(pid_t pid, char* state, char* cmdline)
+int AddJob(pid_t pid, int state, char* cmdline)
 {
   bgjobL* current = bgjobs;
   bgjobL* newJob = (bgjobL*) malloc(sizeof(bgjobL));
@@ -581,7 +581,7 @@ void CheckJobs()
 
   while (current != NULL)
   {
-    if (strcmp(current->state,"RM") == 0)
+    if (current->state == DONE)
     {
       printf("[%d]   Done          %s\n", current->jid,current->cmdline);
 
@@ -609,7 +609,7 @@ void CheckJobs()
   }
 }
 
-void UpdateJobs(pid_t pid, char* state)
+void UpdateJobs(pid_t pid, int state)
 {
   bgjobL* job;
   job = FindJobByPid(pid);
@@ -673,15 +673,15 @@ void PrintJobs()
   while (current != NULL)
   {
     const char* state;
-    if (strcmp(current->state, "BG") == 0)
+    if (current->state == BACKGROUND)
     {
       state = "Running";
     }
-    else if (strcmp(current->state, "ST") == 0)
+    else if (current->state == STOPPED)
     {
       state = "Stopped";
     }
-    else if (strcmp(current->state, "RM") == 0)
+    else if (current->state == DONE)
     {
       state = "Done   ";
       continue; // maybe

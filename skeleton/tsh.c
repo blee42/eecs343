@@ -124,7 +124,7 @@ static void sig(int signo)
       // if process is FG then send signal to its whole process group
       if (fg_pid != -1)
       {
-        // UpdateJobs(fg_pid,"ST");
+        // UpdateJobs(fg_pid, STOPPED);
         kill(-fg_pid, SIGTSTP);
         fg_pid = -1;
       }
@@ -141,7 +141,7 @@ static void sig(int signo)
         {
           // child ended normally
           // printf("in child end normally..\n");
-          UpdateJobs(wpid, "RM");
+          UpdateJobs(wpid, DONE);
         }
         else if (WIFSIGNALED(status))
         {
@@ -149,13 +149,13 @@ static void sig(int signo)
           // printf("in child end by process..\n");
           if (WTERMSIG(status)==2)
           {
-            UpdateJobs(wpid, "RM");
+            UpdateJobs(wpid, DONE);
           }
         }
         else if (WIFSTOPPED(status))
         {
           // printf("in child stop..\n");
-          UpdateJobs(wpid,"ST");
+          UpdateJobs(wpid, STOPPED);
         } 
       } while(wpid>0);
 
