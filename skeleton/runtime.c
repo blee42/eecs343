@@ -651,7 +651,7 @@ void PrintJobs()
       continue;
     }
     printf("[%d]   %s                 %s &\n", current->jid, state, current->cmdline);
-    // fflush(stdout);
+    fflush(stdout);
     current = current->next;
   }
 }
