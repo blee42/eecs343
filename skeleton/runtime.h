@@ -197,9 +197,7 @@ EXTERN void UpdateJobs(pid_t pid, int state);
  ***********************************************************************/
 EXTERN int RemoveJob(pid_t pid);
 
-
 /************External Declaration*****************************************/
-EXTERN void doSIGTSTP();
 
 /**************Definition***************************************************/
 

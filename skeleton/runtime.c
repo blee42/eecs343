@@ -78,7 +78,7 @@ typedef struct bgjob_l {
 bgjobL *bgjobs = NULL;
 int nextjid = 1;
 
-int fg_pid = -1;
+pid_t fg_pid = NULL;
 
 /************Function Prototypes******************************************/
 /* run command */
@@ -101,8 +101,6 @@ static int AddJob(pid_t pid, int state, char* cmdline);
 static void WaitFg(int jid);
 /* find job with jid and return job */
 static bgjobL* FindJobByJid(int jid);
-/* do stuff */
-static bgjobL* FindJobByPid(int pid);
 /* free job memory */
 static void ReleaseJob(bgjobL *job);
 /* debug function to print jobs */
@@ -680,16 +678,5 @@ void PrintJobs()
     printf("[%d]   %s                 %s &\n", current->jid, state, current->cmdline);
     fflush(stdout);
     current = current->next;
-  }
-}
-
-void doSIGTSTP()
-{
-  if (fg_pid >= 0)
-  {
-    bgjobL* job = FindJobByPid(fg_pid);
-    kill(-fg_pid, SIGTSTP);
-    fg_pid = -1;
-    printf("[%d]   Stopped                 %s", job->jid, job->cmdline);
   }
 }
