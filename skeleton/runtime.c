@@ -78,7 +78,7 @@ typedef struct bgjob_l {
 bgjobL *bgjobs = NULL;
 int nextjid = 1;
 
-pid_t fg_pid = NULL;
+int fg_pid = -1;
 
 /************Function Prototypes******************************************/
 /* run command */
@@ -101,8 +101,8 @@ static int AddJob(pid_t pid, int state, char* cmdline);
 static void WaitFg(int jid);
 /* find job with jid and return job */
 static bgjobL* FindJobByJid(int jid);
-/* find job with pid and return job */
-static bgjobL* FindJobByPid(pid_t pid);
+/* do stuff */
+static bgjobL* FindJobByPid(int pid);
 /* free job memory */
 static void ReleaseJob(bgjobL *job);
 /* debug function to print jobs */
@@ -189,7 +189,7 @@ void RunCmdBg(commandT* cmd)
   if (strcmp(command,"fg") == 0)
   {
     job->state = FOREGROUND;
-    // wait?
+    WaitFg(job->pid);
   }
   else
   {
@@ -274,7 +274,6 @@ static bool ResolveExternalCmd(commandT* cmd)
 
 static void Exec(commandT* cmd, bool forceFork)
 {
-  // printf("in exec...\n");
   sigset_t mask;
   sigemptyset(&mask);
   sigaddset(&mask, SIGCHLD);
@@ -306,10 +305,81 @@ static void Exec(commandT* cmd, bool forceFork)
     else
     {
       fg_pid = pid;
-      AddJob(pid, FOREGROUND, cmd->cmdline);
+      int status = 1;
+      // waitpid(pid, &status, 0);
+      WaitFg(pid);
+      // AddJob(pid, FOREGROUND, cmd->cmdline);
     }
   }
 }
+
+// static void Exec(commandT* cmd, bool forceFork)
+// {
+//   // printf("in exec...\n");
+//   sigset_t mask;
+//   sigemptyset(&mask);
+//   sigaddset(&mask, SIGTSTP);
+//   sigprocmask(SIG_BLOCK, &mask, NULL);
+
+//   if (cmd->bg == 1)
+//   {
+//     // background process
+//     pid_t pid;
+//     pid = fork();
+
+//     if (pid == 0)
+//     {
+//       // child process
+//       setpgid(0,0);
+//       sigprocmask(SIG_UNBLOCK, &mask, NULL);
+//       if (execv(cmd->name, cmd->argv) == -1)
+//       {
+//         perror("execv");
+//         exit(2);
+//       }
+//     return; 
+//     }
+//     else
+//     {
+//       // parent process
+//       AddJob(pid, BACKGROUND, cmd->cmdline);
+//       sigprocmask(SIG_UNBLOCK, &mask, NULL);
+//       // printf("[%d] %d\n", jid, pid);
+//     }
+//     return;
+//   }
+//   else
+//   {
+//     // foreground process
+//     pid_t pid;
+//     pid = fork();
+
+//     if (pid == 0)
+//     {
+//       // child process
+//       setpgid(0,0);
+//       sigprocmask(SIG_UNBLOCK, &mask, NULL);
+//       if (execv(cmd->name, cmd->argv) == -1)
+//       {
+//         perror("execv");
+//         exit(2);
+//       } 
+
+//       return;
+//     }
+//     else
+//     {
+//       // parent process
+//       fg_pid = pid;
+//       // AddJob(pid, FOREGROUND, cmd->cmdline);
+//       sigprocmask(SIG_UNBLOCK, &mask, NULL);
+//       // WaitFg(pid);
+//       int status;
+//       waitpid(pid, &status, 0);
+//     }
+//     return;
+//   }
+// }
 
 static bool IsBuiltIn(char* cmd)
 {
@@ -373,22 +443,12 @@ static void RunCd(commandT* cmd)
   free(path);
 }
 
-static void WaitFg(int jid)
+static void WaitFg(int pid)
 {
-  bgjobL* job = NULL;
-  bgjobL* ret = FindJobByJid(jid);
-  if (ret != NULL)
+  while (pid == fg_pid)
   {
-    while (job != NULL && job->state == FOREGROUND) // should this be true or false?
-    {
-      sleep(0);
-    } 
+    sleep(1);
   }
-  else
-  {
-    printf("could not find job\n");
-  }
-  return;
 }
 
 commandT* CreateCmdT(int n)
@@ -501,6 +561,11 @@ void CheckJobs()
 {
   bgjobL* current = bgjobs;
   bgjobL* prev = NULL;
+
+  if (current == NULL)
+  {
+    nextjid = 1;
+  }
 
   while (current != NULL)
   {
@@ -618,3 +683,13 @@ void PrintJobs()
   }
 }
 
+void doSIGTSTP()
+{
+  if (fg_pid >= 0)
+  {
+    bgjobL* job = FindJobByPid(fg_pid);
+    kill(-fg_pid, SIGTSTP);
+    fg_pid = -1;
+    printf("[%d]   Stopped                 %s", job->jid, job->cmdline);
+  }
+}

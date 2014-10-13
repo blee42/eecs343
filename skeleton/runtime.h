@@ -196,9 +196,10 @@ EXTERN void UpdateJobs(pid_t pid, int state);
  *    Output: an int to notify success 
  ***********************************************************************/
 EXTERN int RemoveJob(pid_t pid);
-EXTERN void PrintJobs();
+
 
 /************External Declaration*****************************************/
+EXTERN void doSIGTSTP();
 
 /**************Definition***************************************************/
 
