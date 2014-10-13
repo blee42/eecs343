@@ -698,8 +698,10 @@ void PrintJobs()
     else
     {
       state = "You dun goofed.";
+      continue;
     }
     printf("[%d]   %s                 %s &\n", current->jid, state, current->cmdline);
+    fflush(stdout);
     current = current->next;
   }
 }
