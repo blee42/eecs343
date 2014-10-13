@@ -103,8 +103,7 @@ int main (int argc, char *argv[])
 
 static void sig(int signo)
 {
-  // printf("in sig...\n");
-  int status, wpid;
+  int wpid, status;
   // printf("pid:%d ppid: %d\n", pid, getppid());
 
   switch(signo){
@@ -118,44 +117,56 @@ static void sig(int signo)
       break;
     
     case SIGTSTP:
-      // stuck in an endless loop -- goes to SIGCHLD and attempts to updateJobs with wpid == 0
       // printf("%d SIGTSTP signal in tsh\n", fg_pid);
       // if process is FG then send signal to its whole process group
       if (fg_pid >= 0)
       {
-        // UpdateJobs(fg_pid, STOPPED);
         kill(-fg_pid, SIGTSTP);
         fg_pid = -1;
+        printf("finished sigtstp");
       }
+
       break;
 
+    
     case SIGCHLD:
       do
       {
         wpid = waitpid(-1, &status, WNOHANG | WUNTRACED);
-        // printf("wpid:%d status:%d\n", wpid, status);
-        // printf("in sigchld while loop..\n");
-        if (WIFEXITED(status))
+        if (wpid == fg_pid)
         {
-          // child ended normally
-          // printf("in child end normally..\n");
+          fg_pid = -1;
+        }
+        if (WIFSTOPPED(status))
+        {
+          UpdateJobs(wpid, STOPPED);
+        }
+        else
+        {
           UpdateJobs(wpid, DONE);
         }
-        else if (WIFSIGNALED(status))
-        {
-          // child ended by another process, SIGINT = 2
-          // printf("in child end by process..\n");
-          if (WTERMSIG(status)==2)
-          {
-            UpdateJobs(wpid, DONE);
-          }
-        }
-        else if (WIFSTOPPED(status))
-        {
-          // printf("in child stop..\n");
-          UpdateJobs(wpid, STOPPED);
-        } 
+        // if (WIFEXITED(status))
+        // {
+        //   // child ended normally
+        //   // printf("in child end normally..\n");
+        //   UpdateJobs(wpid, DONE);
+        // }
+        // else if (WIFSIGNALED(status))
+        // {
+        //   // child ended by another process, SIGINT = 2
+        //   // printf("in child end by process..\n");
+        //   if (WTERMSIG(status)==2)
+        //   {
+        //     UpdateJobs(wpid, DONE);
+        //   }
+        // }
+        // else if (WIFSTOPPED(status))
+        // {
+        //   // printf("in child stop..\n");
+        //   UpdateJobs(wpid, STOPPED);
+        // } 
       } while(wpid>0);
+
 
       break;
     default:

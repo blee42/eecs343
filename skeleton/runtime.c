@@ -79,7 +79,6 @@ bgjobL *bgjobs = NULL;
 int nextjid = 1;
 
 pid_t fg_pid = NULL;
-bgjobL *fgjob = NULL;
 
 /************Function Prototypes******************************************/
 /* run command */
@@ -279,64 +278,36 @@ static void Exec(commandT* cmd, bool forceFork)
   sigset_t mask;
   sigemptyset(&mask);
   sigaddset(&mask, SIGCHLD);
+  sigaddset(&mask, SIGINT);
+  sigaddset(&mask, SIGTSTP);
   sigprocmask(SIG_BLOCK, &mask, NULL);
 
-  if (cmd->bg == 1)
-  {
-    // background process
-    pid_t pid;
-    pid = fork();
+  pid_t pid;
+  pid = fork();
 
-    if (pid == 0)
+  if (pid == 0)
+  {
+    // child
+    setpgid(0,0);
+    sigprocmask(SIG_UNBLOCK, &mask, NULL);
+    if (execv(cmd->name, cmd->argv) == -1)
     {
-      // child process
-      setpgid(0,0);
-      sigprocmask(SIG_UNBLOCK, &mask, NULL);
-      if (execv(cmd->name, cmd->argv) == -1)
-      {
-        perror("execv");
-        exit(2);
-      }
-    return; 
+      perror("execv");
+      exit(2);
     }
-    else
-    {
-      // parent process
-      int jid = AddJob(pid, BACKGROUND, cmd->cmdline);
-      sigprocmask(SIG_UNBLOCK, &mask, NULL);
-      // printf("[%d] %d\n", jid, pid);
-    }
-    return;
   }
   else
   {
-    // foreground process
-    pid_t pid;
-    pid = fork();
-
-    if (pid == 0)
+    sigprocmask(SIG_UNBLOCK, &mask, NULL);
+    if (cmd->bg == 1)
     {
-      // child process
-      setpgid(0,0);
-      sigprocmask(SIG_UNBLOCK, &mask, NULL);
-      if (execv(cmd->name, cmd->argv) == -1)
-      {
-        perror("execv");
-        exit(2);
-      } 
-      return;
+      AddJob(pid, BACKGROUND, cmd->cmdline);
     }
     else
     {
-      // parent process
       fg_pid = pid;
-      // AddJob(pid, FOREGROUND, cmd->cmdline);
-      sigprocmask(SIG_UNBLOCK, &mask, NULL);
-      // WaitFg(pid);
-      int status;
-      waitpid(pid, &status, 0);
+      AddJob(pid, FOREGROUND, cmd->cmdline);
     }
-    return;
   }
 }
 
@@ -557,7 +528,6 @@ void CheckJobs()
         current = prev->next;
       }
 
-      // writes any pending text to STDOUT -- maybe move into releasejob?
       fflush(stdout);
     }
     else
@@ -588,17 +558,14 @@ void ReleaseJob(bgjobL* job)
 
 int RemoveJob(pid_t pid)
 {
-  // printf("in remove job..\n");
   bgjobL* current = bgjobs;
   bgjobL* prev;
   if (current == NULL)
   {
-    // printf("No jobs in job list to remove\n");
     return -1;
   }
   else if (current->pid == pid)
   {
-    // printf("removing first in the list\n");
     // remove first in list
     bgjobs = current->next;
     ReleaseJob(current);
@@ -610,7 +577,6 @@ int RemoveJob(pid_t pid)
     current = current->next;
     while (current->next != NULL)
     {
-      // printf("in the remove job loop\n");
       if (current->pid == pid)
       {
         prev->next = current->next;
@@ -621,7 +587,6 @@ int RemoveJob(pid_t pid)
       current = current->next;
     }
     // at the end and did not remove
-    // printf("Could not find %d in job list\n",pid);
     return -1;
   }
 }
@@ -640,16 +605,13 @@ void PrintJobs()
     {
       state = "Stopped";
     }
-    else if (current->state == DONE)
-    {
-      state = "Done   ";
-      continue; // maybe
-    }
     else
     {
-      state = "You dun goofed.";
-      continue;
+      // There's a done or FG job in the list
+      current = current->next;
+      continue; // maybe
     }
+
     printf("[%d]   %s                 %s &\n", current->jid, state, current->cmdline);
     fflush(stdout);
     current = current->next;
