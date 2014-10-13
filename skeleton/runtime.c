@@ -387,61 +387,11 @@ static void RunCd(commandT* cmd)
   getcwd(path,size);
   if (arg == NULL)
   {
-    char* user = malloc(sizeof(char)*20);
-    char* newPath = malloc(sizeof(char)*100);
-    // getenv(home);
-    getlogin_r(user,size);
-    strcat(newPath,"/Users/");
-    strcat(newPath,user);
-    if (chdir(newPath) != 0)
+    if (chdir(getenv("HOME")) != 0)
     {
       printf("error in cd\n");
     }
-    free(user);
-    free(newPath);
   }
-  // move up one directory
-  else if (strcmp(arg,"..") == 0)
-  {
-    typedef struct dir_l {
-      char* dir;
-      struct dir_l* next;
-    } dirL;
-    dirL* head = NULL;
-    dirL* prev;
-
-    char* dir = strtok(path, "/");
-    char* newDir = malloc(sizeof(size_t)*100);
-    head->dir = dir;
-    prev = head;
-    dir = strtok(NULL, "/");
-    
-    while (dir != NULL)
-    {
-      dirL* ndir = malloc(sizeof(dirL));
-      ndir->dir = dir;
-      prev->next = ndir;
-      prev = ndir;
-      dir = strtok(NULL, "/");
-    }
-
-    dirL* cur = head;
-    while(cur->next != NULL)
-    {
-      strcat(newDir,"/");
-      strcat(newDir,cur->dir);
-      if (cur->dir != NULL) free(cur->dir);
-      dirL* temp = cur;
-      cur = cur->next;
-      free(temp);
-    }
-    if (chdir(newDir) != 0)
-    {
-      printf("error in cd\n");
-    }
-    free(newDir);
-  }
-  // move to given directory
   else
   {
     if (chdir(arg) != 0)
@@ -701,7 +651,7 @@ void PrintJobs()
       continue;
     }
     printf("[%d]   %s                 %s &\n", current->jid, state, current->cmdline);
-    fflush(stdout);
+    // fflush(stdout);
     current = current->next;
   }
 }
