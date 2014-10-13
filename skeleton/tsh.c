@@ -114,13 +114,13 @@ static void sig(int signo)
       if (fg_pid != -1)
       {
         kill(-fg_pid, SIGINT);
-        printf("%d\n", fg_pid);
+        // printf("%d\n", fg_pid);
       }
       break;
     
     case SIGTSTP:
       // stuck in an endless loop
-      printf("%d SIGTSTP signal in tsh\n", fg_pid);
+      // printf("%d SIGTSTP signal in tsh\n", fg_pid);
       // if process is FG then send signal to its whole process group
       if (fg_pid != -1)
       {
