@@ -125,7 +125,7 @@ static void sig(int signo)
       {
         // UpdateJobs(fg_pid, STOPPED);
         kill(-fg_pid, SIGTSTP);
-        // fg_pid = -1;
+        fg_pid = -1;
       }
       break;
 

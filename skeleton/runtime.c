@@ -330,7 +330,7 @@ static void Exec(commandT* cmd, bool forceFork)
     {
       // parent process
       fg_pid = pid;
-      AddJob(pid, FOREGROUND, cmd->cmdline);
+      // AddJob(pid, FOREGROUND, cmd->cmdline);
       sigprocmask(SIG_UNBLOCK, &mask, NULL);
       // WaitFg(pid);
       int status;
@@ -587,7 +587,7 @@ void CheckJobs()
     {
       if (current->pid != fg_pid)
       {
-        printf("[%d]   Done          %s\n", current->jid,current->cmdline);
+        printf("[%d]   Done                    %s\n", current->jid,current->cmdline);
       }
       else
       {
