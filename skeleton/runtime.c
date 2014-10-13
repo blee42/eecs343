@@ -72,13 +72,14 @@ typedef struct bgjob_l {
   int state;
   char* cmdline;
   struct bgjob_l* next;
+  bool print;
 } bgjobL;
 
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
 int nextjid = 1;
 
-pid_t fg_pid = NULL;
+int fg_pid = 0;
 
 /************Function Prototypes******************************************/
 /* run command */
@@ -96,11 +97,13 @@ static bool IsBuiltIn(char*);
 /* runs the cd command */
 static void RunCd(commandT* cmd);
 /* adds jobs to the job table */
-static int AddJob(pid_t pid, int state, char* cmdline);
+static int AddJob(pid_t pid, int state, char* cmdline, bool print);
 /* wait for process with pid to no longer be in the foreground */
 static void WaitFg(int jid);
 /* find job with jid and return job */
 static bgjobL* FindJobByJid(int jid);
+/* find job with pid and return job */
+static bgjobL* FindJobByPid(int pid);
 /* free job memory */
 static void ReleaseJob(bgjobL *job);
 /* debug function to print jobs */
@@ -298,15 +301,15 @@ static void Exec(commandT* cmd, bool forceFork)
     sigprocmask(SIG_UNBLOCK, &mask, NULL);
     if (cmd->bg == 1)
     {
-      AddJob(pid, BACKGROUND, cmd->cmdline);
+      AddJob(pid, BACKGROUND, cmd->cmdline, TRUE);
     }
     else
     {
       fg_pid = pid;
-      int status = 1;
+      AddJob(pid, FOREGROUND, cmd->cmdline, FALSE);
       // waitpid(pid, &status, 0);
       WaitFg(pid);
-      // AddJob(pid, FOREGROUND, cmd->cmdline);
+
     }
   }
 }
@@ -476,7 +479,7 @@ void ReleaseCmdT(commandT **cmd){
 }
 
 /* Job Table Functions */
-int AddJob(pid_t pid, int state, char* cmdline)
+int AddJob(pid_t pid, int state, char* cmdline, bool print)
 {
   bgjobL* current = bgjobs;
   bgjobL* newJob = (bgjobL*) malloc(sizeof(bgjobL));
@@ -485,6 +488,7 @@ int AddJob(pid_t pid, int state, char* cmdline)
   newJob->state = state;
   newJob->cmdline = cmdline;
   newJob->next = NULL;
+  newJob->print = print;
 
   if (state == BACKGROUND) // make sure this is all correct
   {
@@ -550,7 +554,6 @@ bgjobL* FindJobByPid(pid_t pid)
         current = current->next;
       }
     } while(current != NULL);
-
     return NULL;
   }
 }
@@ -569,7 +572,7 @@ void CheckJobs()
   {
     if (current->state == DONE)
     {
-      if (current->pid != fg_pid)
+      if (current->print)
       {
         printf("[%d]   Done                    %s\n", current->jid,current->cmdline);
       }
@@ -609,6 +612,13 @@ void UpdateJobs(pid_t pid, int state)
   if (job != NULL)
   {
     job->state = state;
+  }
+
+  if (state == STOPPED)
+  {
+    job->jid = nextjid;
+    nextjid += 1;
+    // on bg change print to true
   }
 }
 
@@ -678,5 +688,17 @@ void PrintJobs()
     printf("[%d]   %s                 %s &\n", current->jid, state, current->cmdline);
     fflush(stdout);
     current = current->next;
+  }
+}
+
+void StopFgProc()
+{
+  if (fg_pid >= 0)
+  {
+    bgjobL* job;
+    job = FindJobByPid(fg_pid);
+    kill(-fg_pid, SIGTSTP);
+    fg_pid = -1;
+    printf("[%d]   Stopped                 %s\n", job->jid, job->cmdline); 
   }
 }

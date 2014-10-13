@@ -117,16 +117,7 @@ static void sig(int signo)
       break;
     
     case SIGTSTP:
-      // printf("%d SIGTSTP signal in tsh\n", fg_pid);
-      // if process is FG then send signal to its whole process group
-      if (fg_pid >= 0)
-      {
-        bgjobL* job = FindJobByPid(fg_pid);
-        kill(-fg_pid, SIGTSTP);
-        fg_pid = -1;
-        printf("[%d]   Stopped                 %s", job->jid, job->cmdLine);
-      }
-
+      StopFgProc();
       break;
 
     

@@ -199,6 +199,8 @@ EXTERN int RemoveJob(pid_t pid);
 
 /************External Declaration*****************************************/
 
+EXTERN void StopFgProc();
+
 /**************Definition***************************************************/
 
 #endif /* __RUNTIME_H__ */
