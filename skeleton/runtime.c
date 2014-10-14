@@ -75,13 +75,6 @@ typedef struct bgjob_l {
   bool print;
 } bgjobL;
 
-/* alias table struct */
-typedef struct alias_l {
-  char* alias;
-  char* cmd;
-  struct alias_l* next;
-} aliasL;
-
 /* heads of the job table and alias linked lists */
 bgjobL *bgjobs = NULL;
 aliasL *aliases = NULL;
@@ -106,9 +99,6 @@ static void RunBuiltInCmd(commandT*);
 static bool IsBuiltIn(char*);
 /* runs the cd command */
 static void RunCd(commandT* cmd);
-/* runs alias and unalias */
-static void RunAlias(commandT* cmd);
-static void RunUnAlias(commandT* cmd);
 /* adds jobs to the job table */
 static void AddJob(pid_t pid, int state, char* cmdline, bool print);
 /* wait for process with pid to no longer be in the foreground */
@@ -389,14 +379,6 @@ static void RunBuiltInCmd(commandT* cmd)
   {
     RunCd(cmd);
   }
-  // else if (strcmp(command, "alias") == 0)
-  // {
-  //   RunAlias(cmd);
-  // }
-  // else if (strcmp(command, "unalias") == 0)
-  // {
-  //   RunUnAlias(cmd);
-  // }
   else
   {
     printf("This should never happen. Whoops :( :(\n");
@@ -430,16 +412,6 @@ static void RunCd(commandT* cmd)
     }
   }
   free(path);
-}
-
-static void RunAlias(commandT* cmd)
-{
-
-}
-
-static void RunUnAlias(commandT* cmd)
-{
-
 }
 
 commandT* CreateCmdT(int n)
