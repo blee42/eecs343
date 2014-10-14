@@ -173,11 +173,11 @@ void RunCmdBg(commandT* cmd)
   // send SIGCONT signal to the specified process group
   if (job->state==STOPPED || job->state==BACKGROUND)
   {
-    int ret = kill((job->pid),SIGCONT);
-    if(ret < 0)
-    {
-      printf("Error in kill\n");
-    }
+    kill(-(job->pid), SIGCONT);
+    // if(ret < 0)
+    // {
+    //   printf("Error in kill\n");
+    // }
   }
 
   // change the state of the jobs
@@ -185,6 +185,7 @@ void RunCmdBg(commandT* cmd)
   {
     job->state = FOREGROUND;
     job->print = FALSE;
+    fg_pid = job->pid;
     WaitFg(job->pid);
   }
   else
@@ -546,9 +547,14 @@ void UpdateJobs(pid_t pid, int state)
     job->state = state;
     if (state == STOPPED)
     {
-      job->jid = nextjid;
-      nextjid += 1;
+      if (job->jid == 0)
+      {
+        job->jid = nextjid;
+        nextjid += 1;
+      }
       
+      printf("[%d]   Stopped                 %s\n", job->jid, job->cmdline); 
+      fflush(stdout);
       // on bg change print to true
     }
   }
@@ -619,7 +625,17 @@ void PrintJobs()
       continue; // maybe
     }
 
-    printf("[%d]   %s                 %s&\n", current->jid, state, current->cmdline);
+    printf("[%d]   %s                 %s", current->jid, state, current->cmdline);
+
+    if (current->state == BACKGROUND)
+    {
+      printf(" &\n");
+    }
+    else
+    {
+      printf("\n");
+    }
+
     fflush(stdout);
     current = current->next;
   }
@@ -657,11 +673,7 @@ void StopFgProc()
 {
   if (fg_pid >= 0)
   {
-    bgjobL* job;
-    job = FindJobByPid(fg_pid);
     kill(-fg_pid, SIGTSTP);
     fg_pid = -1;
-    printf("[%d]   Stopped                 %s\n", job->jid, job->cmdline); 
-    fflush(stdout);
   }
 }
