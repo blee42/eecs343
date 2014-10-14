@@ -108,6 +108,7 @@ static bgjobL* FindJobByPid(int pid);
 static void ReleaseJob(bgjobL *job);
 /* debug function to print jobs */
 void PrintJobs();
+void DebugPrintJobs();
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
@@ -159,7 +160,7 @@ void RunCmdBg(commandT* cmd)
     job = FindJobByJid(pid);
     if (job == NULL)
     {
-      printf("No job in job list pid\n");
+      // printf("No job in job list pid\n");
       return;
     }
   }
@@ -183,6 +184,7 @@ void RunCmdBg(commandT* cmd)
   if (strcmp(command,"fg") == 0)
   {
     job->state = FOREGROUND;
+    job->print = FALSE;
     WaitFg(job->pid);
   }
   else
@@ -421,6 +423,10 @@ void AddJob(pid_t pid, int state, char* cmdline, bool print)
   {
     nextjid += 1; 
   }
+  else
+  {
+    newJob->jid = 0;
+  }
 
   if (current == NULL)
   {
@@ -488,14 +494,11 @@ void CheckJobs()
 {
   bgjobL* current = bgjobs;
   bgjobL* prev = NULL;
-
-  if (current == NULL)
-  {
-    nextjid = 1;
-  }
-
+  // printf("in checkjobs\n");
+  // DebugPrintJobs();
   while (current != NULL)
   {
+    // printf("%d %s %d\n",current->jid, current->cmdline,current->state );
     if (current->state == DONE)
     {
       if (current->print)
@@ -528,6 +531,11 @@ void CheckJobs()
       current = current->next;
     }
   }
+  if (bgjobs == NULL)
+  {
+    nextjid = 1;
+  }
+  // printf("end checkjobs\n");
 }
 
 void UpdateJobs(pid_t pid, int state)
@@ -558,6 +566,7 @@ void ReleaseJob(bgjobL* job)
 
 int RemoveJob(pid_t pid)
 {
+  printf("in remove job\n");
   bgjobL* current = bgjobs;
   bgjobL* prev;
   if (current == NULL)
@@ -612,7 +621,35 @@ void PrintJobs()
       continue; // maybe
     }
 
-    printf("[%d]   %s                 %s &\n", current->jid, state, current->cmdline);
+    printf("[%d]   %s                 %s&\n", current->jid, state, current->cmdline);
+    fflush(stdout);
+    current = current->next;
+  }
+}
+
+void DebugPrintJobs()
+{
+  bgjobL* current = bgjobs;
+  while (current != NULL)
+  {
+    const char* state;
+    if (current->state == BACKGROUND)
+    {
+      state = "Running";
+    }
+    else if (current->state == STOPPED)
+    {
+      state = "Stopped";
+    }
+    else
+    {
+      state = "Other";
+      // There's a done or FG job in the list
+      // current = current->next;
+      // continue; // maybe
+    }
+
+    printf("[%d]   %s                 %s %d&\n", current->jid, state, current->cmdline, current->state);
     fflush(stdout);
     current = current->next;
   }
