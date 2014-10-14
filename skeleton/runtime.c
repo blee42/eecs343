@@ -97,7 +97,7 @@ static bool IsBuiltIn(char*);
 /* runs the cd command */
 static void RunCd(commandT* cmd);
 /* adds jobs to the job table */
-static int AddJob(pid_t pid, int state, char* cmdline, bool print);
+static void AddJob(pid_t pid, int state, char* cmdline, bool print);
 /* wait for process with pid to no longer be in the foreground */
 static void WaitFg(pid_t jid);
 /* find job with jid and return job */
@@ -408,7 +408,7 @@ void ReleaseCmdT(commandT **cmd){
 }
 
 /* Job Table Functions */
-int AddJob(pid_t pid, int state, char* cmdline, bool print)
+void AddJob(pid_t pid, int state, char* cmdline, bool print)
 {
   bgjobL* current = bgjobs;
   bgjobL* newJob = (bgjobL*) malloc(sizeof(bgjobL));
@@ -440,7 +440,6 @@ int AddJob(pid_t pid, int state, char* cmdline, bool print)
     }
     current->next = newJob;
   }
-  return newJob->jid;
 }
 
 bgjobL* FindJobByJid(int jid)
@@ -546,15 +545,15 @@ void UpdateJobs(pid_t pid, int state)
 
   if (job != NULL)
   {
-    job->state=state;
+    job->state = state;
+    if (state == STOPPED)
+    {
+      job->jid = nextjid;
+      nextjid += 1;
+      // on bg change print to true
+    }
   }
 
-  if (state == STOPPED)
-  {
-    job->jid = nextjid;
-    nextjid += 1;
-    // on bg change print to true
-  }
 }
 
 void ReleaseJob(bgjobL* job)
