@@ -75,10 +75,17 @@ typedef struct bgjob_l {
   bool print;
 } bgjobL;
 
-/* the pids of the background processes */
-bgjobL *bgjobs = NULL;
-int nextjid = 1;
+typedef struct alias_l {
+  char* alias;
+  char* cmd;
+  struct alias_l* next;
+} aliasL;
 
+bgjobL *bgjobs = NULL;
+aliasL *aliases = NULL;
+
+
+int nextjid = 1;
 int fg_pid = 0;
 
 /************Function Prototypes******************************************/
@@ -96,6 +103,9 @@ static void RunBuiltInCmd(commandT*);
 static bool IsBuiltIn(char*);
 /* runs the cd command */
 static void RunCd(commandT* cmd);
+/* runs alias and unalias */
+static void RunAlias(commandT* cmd);
+static void RunUnAlias(commandT* cmd);
 /* adds jobs to the job table */
 static void AddJob(pid_t pid, int state, char* cmdline, bool print);
 /* wait for process with pid to no longer be in the foreground */
@@ -312,7 +322,12 @@ static void Exec(commandT* cmd, bool forceFork)
 
 static bool IsBuiltIn(char* cmd)
 {
-  if (strcmp(cmd, "bg") == 0 || strcmp(cmd, "fg") == 0 || strcmp(cmd, "jobs") == 0 || strcmp(cmd, "cd") == 0)
+  if (strcmp(cmd, "bg") == 0 ||
+      strcmp(cmd, "fg") == 0 ||
+      strcmp(cmd, "jobs") == 0 ||
+      strcmp(cmd, "cd") == 0 ||
+      strcmp(cmd, "alias") == 0 ||
+      strcmp(cmd, "unalias") == 0)
   {
     return TRUE;
   }
@@ -341,6 +356,14 @@ static void RunBuiltInCmd(commandT* cmd)
   {
     RunCd(cmd);
   }
+  // else if (strcmp(command, "alias") == 0)
+  // {
+  //   RunAlias(cmd);
+  // }
+  // else if (strcmp(command, "unalias") == 0)
+  // {
+  //   RunUnAlias(cmd);
+  // }
   else
   {
     printf("This should never happen. Whoops :( :(\n");
@@ -368,6 +391,16 @@ static void RunCd(commandT* cmd)
     }
   }
   free(path);
+}
+
+static void RunAlias(commandT* cmd)
+{
+
+}
+
+static void RunUnAlias(commandT* cmd)
+{
+
 }
 
 static void WaitFg(pid_t pid)
@@ -406,7 +439,27 @@ void ReleaseCmdT(commandT **cmd){
   free(*cmd);
 }
 
-/* Job Table Functions */
+/*
+    JOB TABLE FUNCTIONS:
+      - AddJob
+      - ReleaseJob
+
+      - CheckJobs
+      - UpdateJobs
+      - PrintJobs
+
+      - FindJobByJid
+      - FindJobByPid
+*/
+
+/*                      ADDJOB
+
+Constructs an entry for the background jobs list from a PID,
+state, cmdline, and boolean indicating whether to print the job
+when it's done. Foreground jobs are also added to the list but
+given a JID of 0.
+
+*/
 void AddJob(pid_t pid, int state, char* cmdline, bool print)
 {
   bgjobL* current = bgjobs;
@@ -418,13 +471,13 @@ void AddJob(pid_t pid, int state, char* cmdline, bool print)
   newJob->next = NULL;
   newJob->print = print;
 
-  if (state == BACKGROUND) // make sure this is all correct
+  if (state == BACKGROUND)
   {
     nextjid += 1; 
   }
   else
   {
-    newJob->jid = 0;
+    newJob->jid = 0; // give foreground jobs a jid of 0
   }
 
   if (current == NULL)
@@ -438,6 +491,118 @@ void AddJob(pid_t pid, int state, char* cmdline, bool print)
       current = current->next;
     }
     current->next = newJob;
+  }
+}
+
+void ReleaseJob(bgjobL* job)
+{
+  // free(job->state); this causes crashes, idk why
+  free(job->cmdline);
+  free(job);
+}
+
+void CheckJobs()
+{
+  bgjobL* current = bgjobs;
+  bgjobL* prev = NULL;
+
+  while (current != NULL)
+  {
+    if (current->state == DONE)
+    {
+      if (current->print)
+      {
+        printf("[%d]   Done                    %s\n", current->jid,current->cmdline);
+      }
+      else
+      {
+        fg_pid = -1;
+      }
+
+      if (prev == NULL)
+      {
+        bgjobs = current->next;
+        ReleaseJob(current);
+        current = bgjobs;
+      }
+      else
+      {
+        prev->next = current->next;
+        ReleaseJob(current);
+        current = prev->next;
+      }
+
+      fflush(stdout);
+    }
+    else
+    {
+      prev = current;
+      current = current->next;
+    }
+  }
+  if (bgjobs == NULL)
+  {
+    nextjid = 1;
+  }
+}
+
+void UpdateJobs(pid_t pid, int state)
+{
+  bgjobL* job;
+  job = FindJobByPid(pid);
+
+  if (job != NULL)
+  {
+    job->state = state;
+    if (state == STOPPED)
+    {
+      if (job->jid == 0)
+      {
+        job->jid = nextjid;
+        nextjid += 1;
+      }
+      
+      printf("[%d]   Stopped                 %s\n", job->jid, job->cmdline); 
+      fflush(stdout);
+    }
+  }
+
+}
+
+void PrintJobs()
+{
+  bgjobL* current = bgjobs;
+  while (current != NULL)
+  {
+    const char* state;
+    if (current->state == BACKGROUND)
+    {
+      state = "Running";
+    }
+    else if (current->state == STOPPED)
+    {
+      state = "Stopped";
+    }
+    else
+    {
+      // There's a done or FG job in the list
+      current = current->next;
+      continue; // maybe
+    }
+
+    printf("[%d]   %s                 %s", current->jid, state, current->cmdline);
+
+    if (current->state == BACKGROUND)
+    {
+      printf(" &\n");
+    }
+    else
+    {
+      printf("\n");
+    }
+
+    fflush(stdout);
+    current = current->next;
   }
 }
 
@@ -489,186 +654,7 @@ bgjobL* FindJobByPid(pid_t pid)
   }
 }
 
-void CheckJobs()
-{
-  bgjobL* current = bgjobs;
-  bgjobL* prev = NULL;
-  // printf("in checkjobs\n");
-  // DebugPrintJobs();
-  while (current != NULL)
-  {
-    // printf("%d %s %d\n",current->jid, current->cmdline,current->state );
-    if (current->state == DONE)
-    {
-      if (current->print)
-      {
-        printf("[%d]   Done                    %s\n", current->jid,current->cmdline);
-      }
-      else
-      {
-        fg_pid = -1;
-      }
-
-      if (prev == NULL)
-      {
-        bgjobs = current->next;
-        ReleaseJob(current);
-        current = bgjobs;
-      }
-      else
-      {
-        prev->next = current->next;
-        ReleaseJob(current);
-        current = prev->next;
-      }
-
-      fflush(stdout);
-    }
-    else
-    {
-      prev = current;
-      current = current->next;
-    }
-  }
-  if (bgjobs == NULL)
-  {
-    nextjid = 1;
-  }
-  // printf("end checkjobs\n");
-}
-
-void UpdateJobs(pid_t pid, int state)
-{
-  bgjobL* job;
-  job = FindJobByPid(pid);
-
-  if (job != NULL)
-  {
-    job->state = state;
-    if (state == STOPPED)
-    {
-      if (job->jid == 0)
-      {
-        job->jid = nextjid;
-        nextjid += 1;
-      }
-      
-      printf("[%d]   Stopped                 %s\n", job->jid, job->cmdline); 
-      fflush(stdout);
-      // on bg change print to true
-    }
-  }
-
-}
-
-void ReleaseJob(bgjobL* job)
-{
-  // free(job->state); this causes crashes, idk why
-  free(job->cmdline);
-  free(job);
-}
-
-int RemoveJob(pid_t pid)
-{
-  printf("in remove job\n");
-  bgjobL* current = bgjobs;
-  bgjobL* prev;
-  if (current == NULL)
-  {
-    return -1;
-  }
-  else if (current->pid == pid)
-  {
-    // remove first in list
-    bgjobs = current->next;
-    ReleaseJob(current);
-    return 0;
-  }
-  else
-  {
-    prev = bgjobs;
-    current = current->next;
-    while (current->next != NULL)
-    {
-      if (current->pid == pid)
-      {
-        prev->next = current->next;
-        current = current->next;
-        ReleaseJob(current);
-        return 0;
-      }
-      current = current->next;
-    }
-    // at the end and did not remove
-    return -1;
-  }
-}
-
-void PrintJobs()
-{
-  bgjobL* current = bgjobs;
-  while (current != NULL)
-  {
-    const char* state;
-    if (current->state == BACKGROUND)
-    {
-      state = "Running";
-    }
-    else if (current->state == STOPPED)
-    {
-      state = "Stopped";
-    }
-    else
-    {
-      // There's a done or FG job in the list
-      current = current->next;
-      continue; // maybe
-    }
-
-    printf("[%d]   %s                 %s", current->jid, state, current->cmdline);
-
-    if (current->state == BACKGROUND)
-    {
-      printf(" &\n");
-    }
-    else
-    {
-      printf("\n");
-    }
-
-    fflush(stdout);
-    current = current->next;
-  }
-}
-
-void DebugPrintJobs()
-{
-  bgjobL* current = bgjobs;
-  while (current != NULL)
-  {
-    const char* state;
-    if (current->state == BACKGROUND)
-    {
-      state = "Running";
-    }
-    else if (current->state == STOPPED)
-    {
-      state = "Stopped";
-    }
-    else
-    {
-      state = "Other";
-      // There's a done or FG job in the list
-      // current = current->next;
-      // continue; // maybe
-    }
-
-    printf("[%d]   %s                 %s %d&\n", current->jid, state, current->cmdline, current->state);
-    fflush(stdout);
-    current = current->next;
-  }
-}
-
+/* */
 void StopFgProc()
 {
   if (fg_pid >= 0)
