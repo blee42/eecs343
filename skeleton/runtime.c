@@ -542,6 +542,7 @@ void UpdateJobs(pid_t pid, int state)
     {
       job->jid = nextjid;
       nextjid += 1;
+      
       // on bg change print to true
     }
   }

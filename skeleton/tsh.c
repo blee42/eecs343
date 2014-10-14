@@ -137,26 +137,6 @@ static void sig(int signo)
         {
           UpdateJobs(wpid, DONE);
         }
-        // if (WIFEXITED(status))
-        // {
-        //   // child ended normally
-        //   // printf("in child end normally..\n");
-        //   UpdateJobs(wpid, DONE);
-        // }
-        // else if (WIFSIGNALED(status))
-        // {
-        //   // child ended by another process, SIGINT = 2
-        //   // printf("in child end by process..\n");
-        //   if (WTERMSIG(status)==2)
-        //   {
-        //     UpdateJobs(wpid, DONE);
-        //   }
-        // }
-        // else if (WIFSTOPPED(status))
-        // {
-        //   // printf("in child stop..\n");
-        //   UpdateJobs(wpid, STOPPED);
-        // } 
       } while(wpid>0);
 
       break;
