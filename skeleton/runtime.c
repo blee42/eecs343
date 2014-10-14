@@ -65,7 +65,7 @@
 /************Global Variables*********************************************/
 
 #define NBUILTINCOMMANDS (sizeof BuiltInCommands / sizeof(char*))
-
+/* job table struct */
 typedef struct bgjob_l {
   pid_t pid;
   int jid;
@@ -75,17 +75,20 @@ typedef struct bgjob_l {
   bool print;
 } bgjobL;
 
+/* alias table struct */
 typedef struct alias_l {
   char* alias;
   char* cmd;
   struct alias_l* next;
 } aliasL;
 
+/* heads of the job table and alias linked lists */
 bgjobL *bgjobs = NULL;
 aliasL *aliases = NULL;
 
-
+/* tracks the next job id value to be added */
 int nextjid = 1;
+/* tracks the current foreground process */
 int fg_pid = 0;
 
 /************Function Prototypes******************************************/
@@ -116,9 +119,8 @@ static bgjobL* FindJobByJid(int jid);
 static bgjobL* FindJobByPid(int pid);
 /* free job memory */
 static void ReleaseJob(bgjobL *job);
-/* debug function to print jobs */
-void PrintJobs();
-void DebugPrintJobs();
+/* prints jobs in job table */
+static void PrintJobs();
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
@@ -136,7 +138,6 @@ void RunCmd(commandT** cmd, int n)
   }
 }
 
-/* fork() system call - copies address space but stops parent execution */
 void RunCmdFork(commandT* cmd, bool fork)
 {
   if (cmd->argc<=0)
@@ -209,17 +210,14 @@ void RunCmdBg(commandT* cmd)
 
 void RunCmdPipe(commandT* cmd1, commandT* cmd2)
 {
-  // TODO
 }
 
 void RunCmdRedirOut(commandT* cmd, char* file)
 {
-  // TODO
 }
 
 void RunCmdRedirIn(commandT* cmd, char* file)
 {
-  // TODO
 }
 
 

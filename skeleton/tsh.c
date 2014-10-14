@@ -66,7 +66,6 @@ static void sig(int);
 
 int main (int argc, char *argv[])
 {
-  // printf("in main...\n");
   /* Initialize command buffer */
   char* cmdLine = malloc(sizeof(char*)*BUFSIZE);
 
@@ -88,7 +87,6 @@ int main (int argc, char *argv[])
     }
 
     /* checks the status of background jobs */
-    /* TODO in runtime.c */
     CheckJobs();
 
     /* interpret command and line

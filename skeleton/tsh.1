@@ -35,5 +35,12 @@ The shell recognizes "crt-z" as a SIGTSTOP signal and stops the execution of the
 .IP SIGINT
 The shell recognizes "ctrl-c" as a SIGINT signal and interrupts the current process as well as any descendents of that process
 .RE
+.SH DESIGN NOTES
+.IP fg_pid
+We added a global, fg_pid, which tracks the process id of the current foreground process.  We use this id to wait on as well as to send kill signals to.
+.IP bgjobL
+We add the foreground jobs to our background job list with a job id of 0.  We did this because we use our background job list to track the state of each job and the foreground state could change.
+.IP UpdateJobs
+Instead of printing the STOPPED job statement in the signal handler, we print the STOPPED statement in UpdateJobs so that we could correctly update the job id.
 .SH AUTHOR
 Written by Brittany Lee (bal312) and Kevin Chen (kjc004)
