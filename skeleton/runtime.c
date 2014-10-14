@@ -75,9 +75,8 @@ typedef struct bgjob_l {
   bool print;
 } bgjobL;
 
-/* heads of the job table and alias linked lists */
+/* head of the job table linked lists */
 bgjobL *bgjobs = NULL;
-aliasL *aliases = NULL;
 
 /* tracks the next job id value to be added */
 int nextjid = 1;
