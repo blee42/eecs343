@@ -99,7 +99,7 @@ static void RunCd(commandT* cmd);
 /* adds jobs to the job table */
 static int AddJob(pid_t pid, int state, char* cmdline, bool print);
 /* wait for process with pid to no longer be in the foreground */
-static void WaitFg(int jid);
+static void WaitFg(pid_t jid);
 /* find job with jid and return job */
 static bgjobL* FindJobByJid(int jid);
 /* find job with pid and return job */
@@ -145,6 +145,7 @@ void RunCmdBg(commandT* cmd)
   bgjobL* job;
   char* id = cmd->argv[1];
   char* command = cmd->argv[0];
+  pid_t pid;
 
   // find job in list
   if (id == NULL)
@@ -152,24 +153,13 @@ void RunCmdBg(commandT* cmd)
     printf("No id supplied\n");
     return;
   }
-  else if (id[0] == '%')
-  {
-    // printf("This is a job id\n");
-    job = FindJobByJid(atoi(id));
-    if (job == NULL)
-    {
-      // printf("No job in job list\n");
-      return;
-    }
-  }
   else if (atoi(id))
   {
-    // printf("This is a pid\n");
-    pid_t pid = atoi(id);
-    job = FindJobByPid(pid);
+    pid = atoi(id);
+    job = FindJobByJid(pid);
     if (job == NULL)
     {
-      // printf("No job in job list\n");
+      printf("No job in job list pid\n");
       return;
     }
   }
@@ -180,10 +170,13 @@ void RunCmdBg(commandT* cmd)
   }
 
   // send SIGCONT signal to the specified process group
-  int ret = kill(-(job->pid),SIGCONT);
-  if(ret < 0)
+  if (job->state==STOPPED || job->state==BACKGROUND)
   {
-    printf("Error in kill\n");
+    int ret = kill((job->pid),SIGCONT);
+    if(ret < 0)
+    {
+      printf("Error in kill\n");
+    }
   }
 
   // change the state of the jobs
@@ -314,74 +307,6 @@ static void Exec(commandT* cmd, bool forceFork)
   }
 }
 
-// static void Exec(commandT* cmd, bool forceFork)
-// {
-//   // printf("in exec...\n");
-//   sigset_t mask;
-//   sigemptyset(&mask);
-//   sigaddset(&mask, SIGTSTP);
-//   sigprocmask(SIG_BLOCK, &mask, NULL);
-
-//   if (cmd->bg == 1)
-//   {
-//     // background process
-//     pid_t pid;
-//     pid = fork();
-
-//     if (pid == 0)
-//     {
-//       // child process
-//       setpgid(0,0);
-//       sigprocmask(SIG_UNBLOCK, &mask, NULL);
-//       if (execv(cmd->name, cmd->argv) == -1)
-//       {
-//         perror("execv");
-//         exit(2);
-//       }
-//     return; 
-//     }
-//     else
-//     {
-//       // parent process
-//       AddJob(pid, BACKGROUND, cmd->cmdline);
-//       sigprocmask(SIG_UNBLOCK, &mask, NULL);
-//       // printf("[%d] %d\n", jid, pid);
-//     }
-//     return;
-//   }
-//   else
-//   {
-//     // foreground process
-//     pid_t pid;
-//     pid = fork();
-
-//     if (pid == 0)
-//     {
-//       // child process
-//       setpgid(0,0);
-//       sigprocmask(SIG_UNBLOCK, &mask, NULL);
-//       if (execv(cmd->name, cmd->argv) == -1)
-//       {
-//         perror("execv");
-//         exit(2);
-//       } 
-
-//       return;
-//     }
-//     else
-//     {
-//       // parent process
-//       fg_pid = pid;
-//       // AddJob(pid, FOREGROUND, cmd->cmdline);
-//       sigprocmask(SIG_UNBLOCK, &mask, NULL);
-//       // WaitFg(pid);
-//       int status;
-//       waitpid(pid, &status, 0);
-//     }
-//     return;
-//   }
-// }
-
 static bool IsBuiltIn(char* cmd)
 {
   if (strcmp(cmd, "bg") == 0 || strcmp(cmd, "fg") == 0 || strcmp(cmd, "jobs") == 0 || strcmp(cmd, "cd") == 0)
@@ -444,12 +369,14 @@ static void RunCd(commandT* cmd)
   free(path);
 }
 
-static void WaitFg(int pid)
+static void WaitFg(pid_t pid)
 {
-  while (pid == fg_pid)
+  bgjobL* job = FindJobByPid(pid);
+  while(job != NULL && job->state==FOREGROUND)
   {
     sleep(1);
   }
+  return;
 }
 
 commandT* CreateCmdT(int n)
