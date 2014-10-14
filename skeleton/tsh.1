@@ -1,0 +1,39 @@
+.\" Process ths file with
+.\" groff -man -Tascii tsh.1
+.TH TSH 1 Linux "User Manuals"
+.SH NAME
+tsh \- a tiny shell program
+.SH SYNOPSIS
+tsh \- [command] [args]
+.SH DESCRIPTION
+.B tsh
+is a shell command line interpreter for Unix systems.  The shell handles the execution of commands inputted by the user with a number of optional arguments.  The program takes care of job control, including running jobs in both the foreground and background, some builtin commands, and a couple of different signals.
+.IP Basic
+.RS
+.IP "command arg_1 arg_2 ... arg_n"
+Runs the specified command with the optional arguments in the foreground.
+.IP "command arg_1 arg_2 ... arg_n &"
+Runs the specified command with optional arguments in the background.
+.RE
+.IP Builtin
+.RS
+.IP exit
+Exits the shell
+.IP fg
+Takes an optional job id and moves the specified job from running in the background to running and finishing in the foreground.  If no job id is supplied, the most recent job is moved.
+.IP bg
+Takes an optional job id and runs the specified job in the background.  If no job id is supplied, the most recent job is continued.
+.IP jobs
+Prints a list of all the currently running jobs.
+.IP cd
+Takes an optional directory and moves the working directory to the specified new directory.  If no argument is given, then the working directory switches to the home directory and if a ".." argument is givne, the wroking directory moves one directory up from the current point.
+.RE
+.IP Signals
+.RS
+.IP SIGTSTP
+The shell recognizes "crt-z" as a SIGTSTOP signal and stops the execution of the current foreground job as well as any descendants of that job.
+.IP SIGINT
+The shell recognizes "ctrl-c" as a SIGINT signal and interrupts the current process as well as any descendents of that process
+.RE
+.SH AUTHOR
+Written by Brittany Lee (bal312) and Kevin Chen (kjc004)
