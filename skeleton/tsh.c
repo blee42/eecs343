@@ -101,19 +101,18 @@ int main (int argc, char *argv[])
   return 0;
 } /* end main */
 
+/*                     SIG
+
+Recognizes signals and redirects them to the appropriate
+handler.
+
+*/
 static void sig(int signo)
 {
-  int wpid, status;
-  // printf("pid:%d ppid: %d\n", pid, getppid());
-
   switch(signo){
 
-    // kills the foreground process via signal to its process group
     case SIGINT:
-      if (fg_pid >= 0)
-      {
-        kill(-fg_pid, SIGINT); // this removes from job list? 
-      }
+      IntFgProc();
       break;
     
     case SIGTSTP:
@@ -122,22 +121,7 @@ static void sig(int signo)
 
     
     case SIGCHLD:
-      do
-      {
-        wpid = waitpid(-1, &status, WNOHANG | WUNTRACED);
-        if (wpid == fg_pid)
-        {
-          fg_pid = -1;
-        }
-        if (WIFSTOPPED(status))
-        {
-          UpdateJobs(wpid, STOPPED);
-        }
-        else
-        {
-          UpdateJobs(wpid, DONE);
-        }
-      } while(wpid>0);
+      HandleChildren();
 
       break;
     default:

@@ -197,9 +197,16 @@ EXTERN void UpdateJobs(pid_t pid, int state);
  ***********************************************************************/
 EXTERN int RemoveJob(pid_t pid);
 
+/***********************************************************************
+ *  Signal Handlers
+ * ---------------------------------------------------------------------
+ *    These are handle respectively SIGINT, SIGTSTP and SIGCHLD.
+ ***********************************************************************/
+EXTERN void IntFgProc();
+EXTERN void StopFgProc();
+EXTERN void HandleChildren();
 /************External Declaration*****************************************/
 
-EXTERN void StopFgProc();
 
 /**************Definition***************************************************/
 

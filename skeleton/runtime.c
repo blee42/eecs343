@@ -151,12 +151,20 @@ void RunCmdFork(commandT* cmd, bool fork)
   }
 }
 
+/*                      RUNCMDBG
+
+Implements the FG and BG commands. Grabs the JID from the command line, then
+finds the appropriate job in the background jobs list. Sends the SIGCONT signal.
+Depending on if FG or BG, updates the state of the job and sets the global
+foreground job PID.
+
+*/
 void RunCmdBg(commandT* cmd)
 {
   bgjobL* job;
   char* id = cmd->argv[1];
   char* command = cmd->argv[0];
-  pid_t pid;
+  pid_t jid;
 
   // find job in list
   if (id == NULL)
@@ -166,28 +174,23 @@ void RunCmdBg(commandT* cmd)
   }
   else if (atoi(id))
   {
-    pid = atoi(id);
-    job = FindJobByJid(pid);
+    jid = atoi(id);
+    job = FindJobByJid(jid);
     if (job == NULL)
     {
-      // printf("No job in job list pid\n");
+      printf("No job in job list.\n");
       return;
     }
   }
   else
   {
-    printf("Error in the command\n");
+    printf("Error in the command.\n");
     return;
   }
 
-  // send SIGCONT signal to the specified process group
   if (job->state==STOPPED || job->state==BACKGROUND)
   {
     kill(-(job->pid), SIGCONT);
-    // if(ret < 0)
-    // {
-    //   printf("Error in kill\n");
-    // }
   }
 
   // change the state of the jobs
@@ -279,6 +282,14 @@ static bool ResolveExternalCmd(commandT* cmd)
   return FALSE; /*The command is not found or the user don't have enough priority to run.*/
 }
 
+/*                        EXEC
+
+Forks then EXECVs the appropriate command in the child process. 
+Masks are set up so that the child process does not begin executing
+until it's properly assigned a PID. Appropriately adds the job to the
+job list.
+
+*/
 static void Exec(commandT* cmd, bool forceFork)
 {
   sigset_t mask;
@@ -313,13 +324,35 @@ static void Exec(commandT* cmd, bool forceFork)
     {
       fg_pid = pid;
       AddJob(pid, FOREGROUND, cmd->cmdline, FALSE);
-      // waitpid(pid, &status, 0);
       WaitFg(pid);
 
     }
   }
 }
 
+/*                       WAITFG
+
+Sleeps the shell while waiting for the foreground process
+to finish executing.
+
+*/
+static void WaitFg(pid_t pid)
+{
+  bgjobL* job = FindJobByPid(pid);
+  while(job != NULL && job->state==FOREGROUND)
+  {
+    sleep(1);
+  }
+  return;
+}
+
+/*                      ISBUILTIN
+
+Determines if the command being passed through is built into our
+shell, or if we should do a search through the user PATH to find
+the right file.
+
+*/
 static bool IsBuiltIn(char* cmd)
 {
   if (strcmp(cmd, "bg") == 0 ||
@@ -337,15 +370,17 @@ static bool IsBuiltIn(char* cmd)
   }    
 }
 
+/*                     RUNBUILTINCMD
 
+Redirects the command to the appropriate built in function.
+
+*/
 static void RunBuiltInCmd(commandT* cmd)
 {
   char* command = cmd->argv[0];
-  // printf("%s\n",command);
 
   if (strcmp(command,"bg") == 0 || strcmp(command,"fg") == 0)
   {
-    // printf("bg and fg command runs here\n");
     RunCmdBg(cmd);
   }
   else if (strcmp(command,"jobs") == 0)
@@ -370,6 +405,12 @@ static void RunBuiltInCmd(commandT* cmd)
   }
 }
 
+/*                        RUNCD
+
+Implements the CD command. Uses CHDIR to move the appropriate
+directory. If no argument is provided, relocates home.
+
+*/
 static void RunCd(commandT* cmd)
 {
   char* arg = cmd->argv[1];
@@ -401,16 +442,6 @@ static void RunAlias(commandT* cmd)
 static void RunUnAlias(commandT* cmd)
 {
 
-}
-
-static void WaitFg(pid_t pid)
-{
-  bgjobL* job = FindJobByPid(pid);
-  while(job != NULL && job->state==FOREGROUND)
-  {
-    sleep(1);
-  }
-  return;
 }
 
 commandT* CreateCmdT(int n)
@@ -477,7 +508,7 @@ void AddJob(pid_t pid, int state, char* cmdline, bool print)
   }
   else
   {
-    newJob->jid = 0; // give foreground jobs a jid of 0
+    newJob->jid = 0;
   }
 
   if (current == NULL)
@@ -494,13 +525,25 @@ void AddJob(pid_t pid, int state, char* cmdline, bool print)
   }
 }
 
+/*                    RELEASEJOB
+
+Frees an entry in the background jobs list.
+
+*/
 void ReleaseJob(bgjobL* job)
 {
-  // free(job->state); this causes crashes, idk why
   free(job->cmdline);
   free(job);
 }
 
+/*                     CHECKJOBS
+
+Iterates through the background jobs list. Removes entries that
+have the state DONE and prints them if the PRINT boolean is set.
+Removed entries are freed and the list is relinked accordingly.
+The next assigned JID is reset if the list is empty in the end.
+
+*/
 void CheckJobs()
 {
   bgjobL* current = bgjobs;
@@ -546,6 +589,13 @@ void CheckJobs()
   }
 }
 
+/*                    UPDATEJOBS
+
+Given a PID and new state, finds the corresponding job in the
+background jobs list and updates its state. If this is called
+as a result of a SIGTSTP, also prints an appropriate statement.
+
+*/
 void UpdateJobs(pid_t pid, int state)
 {
   bgjobL* job;
@@ -569,6 +619,12 @@ void UpdateJobs(pid_t pid, int state)
 
 }
 
+/*                     PRINTJOBS
+
+Iterates through the background jobs list. Prints all entries that
+are either RUNNING or STOPPED. Appends an '&' if RUNNING.
+
+*/
 void PrintJobs()
 {
   bgjobL* current = bgjobs;
@@ -606,6 +662,12 @@ void PrintJobs()
   }
 }
 
+/*                    FINDJOBBYJID
+
+Iterates through the background jobs list, returning the node
+that has a matching JID.
+
+*/
 bgjobL* FindJobByJid(int jid)
 {
   bgjobL* current = bgjobs;
@@ -626,10 +688,17 @@ bgjobL* FindJobByJid(int jid)
         current = current->next;
       }
     } while(current != NULL);
+
     return NULL;
   }
 }
 
+/*                    FINDJOBBYPID
+
+Iterates through the background jobs list, returning the node
+that has a matching PID.
+
+*/
 bgjobL* FindJobByPid(pid_t pid)
 {
   bgjobL* current = bgjobs;
@@ -654,7 +723,33 @@ bgjobL* FindJobByPid(pid_t pid)
   }
 }
 
-/* */
+/********************END JOB TABLE FUNCTIONS********************/
+
+/*
+    SIGNAL HANDLER FUNCTIONS:
+      - IntFgProc
+      - StopFgProc
+      - HandleChildren
+*/
+
+/*                       INTFGPROC
+
+Sends a SIGINT signal to FG_PID's process group.
+
+*/
+void IntFgProc()
+{
+  if (fg_pid >= 0)
+  {
+    kill(-fg_pid, SIGINT);  
+  }
+}
+
+/*                       STOPFGPROC
+
+Sends a SIGTSTP signal to FG_PID's process group.
+
+*/
 void StopFgProc()
 {
   if (fg_pid >= 0)
@@ -663,3 +758,31 @@ void StopFgProc()
     fg_pid = -1;
   }
 }
+
+/*                     HANDLECHILDREN
+
+Waits for, reaps, and updates children.
+
+*/
+void HandleChildren()
+{
+  int wpid, status;
+  do
+  {
+    wpid = waitpid(-1, &status, WNOHANG | WUNTRACED);
+    if (wpid == fg_pid)
+    {
+      fg_pid = -1;
+    }
+    if (WIFSTOPPED(status))
+    {
+      UpdateJobs(wpid, STOPPED);
+    }
+    else
+    {
+      UpdateJobs(wpid, DONE);
+    }
+  } while(wpid>0);
+}
+
+
