@@ -350,10 +350,8 @@ static void RunCd(commandT* cmd)
 {
   char* arg = cmd->argv[1];
   char* path = malloc(sizeof(size_t)*100);
-  size_t size = 100;
 
   // move to home directory
-  getcwd(path,size);
   if (arg == NULL)
   {
     if (chdir(getenv("HOME")) != 0)
