@@ -49,9 +49,28 @@
  *  structures and arrays, line everything up in neat columns.
  */
 
+// free list holds <base,size> pairs
+typedef struct 
+{
+  void* base;
+  int size;
+  void* next;
+} freelist_t;
+
+// header for each page
+typedef struct
+{
+  void* self;
+  int pages; // number of pages
+  int allocated; // empty page or allocated page
+  freelist_t* header;
+} pageheader_t;
+
 /************Global Variables*********************************************/
+kma_page_t* entryptr = 0; // entry to page structure
 
 /************Function Prototypes******************************************/
+void* firstfit(kma_size_t size); // first fit algorithm to find space of specified size
 
 /************External Declaration*****************************************/
 
@@ -60,7 +79,36 @@
 void*
 kma_malloc(kma_size_t size)
 {
-  return NULL;
+  // requested size too large
+  if ((size + sizeof(kma_page_t*)) > page->size)
+  {
+    free_page(page);
+    return NULL;
+  }
+
+  pageheader_t* main;
+  void* location;
+
+  // set entry pointer
+  if (entryptr == 0)
+  {
+    kma_page_t* page = getpage();
+    pageheader_t* header;
+
+    *((kma_page_t**)page->ptr) = page; 
+    header = (pageheader_t*)(page->ptr); // add header to page
+    header->header = (freelist_t*)((int)header + sizeof(pageheader_t)); // allocate free list
+
+    entryptr = page;
+
+    // add entire page to free list
+  }
+
+  main = (pageheader_t*)entryptr->ptr;
+  location = firstfit(size);
+  main.allocated = 1;
+  
+  return location;
 }
 
 void
