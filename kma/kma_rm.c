@@ -62,8 +62,8 @@ typedef struct
 typedef struct
 {
   void* self;
-  int pages; // number of pages
   int allocated; // empty page or allocated page
+  kma_page_t* nextpage;
   freelist_t* header;
 } pageheader_t;
 
@@ -103,7 +103,7 @@ kma_malloc(kma_size_t size)
 
   main = (pageheader_t*)entryptr->ptr;
   location = first_fit(size);
-  main.allocated = 1;
+  main->allocated++;
   
   return location;
 }
@@ -111,7 +111,19 @@ kma_malloc(kma_size_t size)
 void
 kma_free(void* ptr, kma_size_t size)
 {
-  ;
+  pageheader_t* main = (pageheader_t*)entryptr->ptr; 
+  add_ll(main->header, ptr, size);
+
+  pageheader_t* cur = main;
+
+  while (cur != NULL)
+  {
+    if (cur->allocated == 0)
+    {
+      free_page(cur->self);
+    }
+    cur = cur->next;
+  }
 }
 
 kma_page_t* new_page(kma_page_t page)
@@ -120,6 +132,7 @@ kma_page_t* new_page(kma_page_t page)
   *((kma_page_t**)page->ptr) = page; 
   header = (pageheader_t*)(page->ptr); // add header to page
   header->header = (freelist_t*)((int)header + sizeof(pageheader_t)); // allocate free list
+  page->allocated++;
   return page;
 }
 
@@ -137,19 +150,21 @@ void* first_fit (kma_size_t size)
       if (cur->size == size)
       {
         main->header = remove_ll(main->header, cur->id);
+        main.allocated++;
         return cur;
       }
 
+      // update the free block size
       cur->base = cur->base + size;
       cur->size = cur->size - size;
+      main.allocated++;
       return cur;
     }
   }
 
   // if you get here, then there was no space in this page
   kma_page_t* page = new_page(getpage());
-
-  main.pages++;
+  main->nextpage = page;
   return first_fit(size);
 }
 
