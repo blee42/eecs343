@@ -52,6 +52,7 @@
 // free list holds <base,size> pairs
 typedef struct 
 {
+  int id;
   void* base;
   int size;
   void* next;
@@ -70,8 +71,10 @@ typedef struct
 kma_page_t* entryptr = 0; // entry to page structure
 
 /************Function Prototypes******************************************/
-void* firstfit(kma_size_t size); // first fit algorithm to find space of specified size
-
+kma_page_t* new_page(kma_page_t* page);
+void* first_fit(kma_size_t size); // first fit algorithm to find space of specified size
+void add_ll(freelist_t* head, void* base, int size);
+void remove_ll(freelist_t* head, int id);
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
@@ -92,20 +95,14 @@ kma_malloc(kma_size_t size)
   // set entry pointer
   if (entryptr == 0)
   {
-    kma_page_t* page = getpage();
-    pageheader_t* header;
-
-    *((kma_page_t**)page->ptr) = page; 
-    header = (pageheader_t*)(page->ptr); // add header to page
-    header->header = (freelist_t*)((int)header + sizeof(pageheader_t)); // allocate free list
-
+    kma_page_t* page = new_page(getpage());
     entryptr = page;
 
-    // add entire page to free list
+    add_ll(entryptr->header, entryptr->ptr, page->size);
   }
 
   main = (pageheader_t*)entryptr->ptr;
-  location = firstfit(size);
+  location = first_fit(size);
   main.allocated = 1;
   
   return location;
@@ -113,6 +110,80 @@ kma_malloc(kma_size_t size)
 
 void
 kma_free(void* ptr, kma_size_t size)
+{
+  ;
+}
+
+kma_page_t* new_page(kma_page_t page)
+{
+  pageheader_t* header;
+  *((kma_page_t**)page->ptr) = page; 
+  header = (pageheader_t*)(page->ptr); // add header to page
+  header->header = (freelist_t*)((int)header + sizeof(pageheader_t)); // allocate free list
+  return page;
+}
+
+void* first_fit (kma_size_t size)
+{
+  pageheader_t* main = (pageheader_t*)entryptr->ptr;
+  freelist_t* cur = (freelist_t*)main->header;
+
+  while (cur != NULL)
+  {
+    // if current size available is greater than or equal to the size needed
+    if (cur->size >= size)
+    {
+      // if current size available is exactly what is needed
+      if (cur->size == size)
+      {
+        remove_ll(main->header, cur->id);
+        return cur;
+      }
+
+      cur->base = cur->base + size;
+      cur->size = cur->size - size;
+      return cur;
+    }
+  }
+
+  // if you get here, then there was no space in this page
+  kma_page_t* page = new_page(getpage());
+
+  main.pages++;
+  return first_fit(size);
+}
+
+void add_ll(freelist_t* head, void* base, int size)
+{
+  freelist_t* cur = head;
+  freelist_t* prev = NULL;
+
+  freelist_t* new;
+  new->base = base;
+  new->size = size;
+  new->next = NULL;
+
+  if (base < cur->base)
+  {
+    new->next = cur;
+    return;
+  }
+  
+  while (cur != NULL)
+  {
+    if (base < cur->base)
+    {
+      prev->next = new;
+      new->next = cur;
+      return;
+    }
+    prev = cur;
+    cur = cur->next;
+  }
+  cur->next = new;
+}
+
+void remove_ll(freelist_t* head, int id)
 {
   ;
 }
