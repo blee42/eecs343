@@ -74,7 +74,7 @@ kma_page_t* entryptr = 0; // entry to page structure
 kma_page_t* new_page(kma_page_t* page);
 void* first_fit(kma_size_t size); // first fit algorithm to find space of specified size
 void add_ll(freelist_t* head, void* base, int size);
-void remove_ll(freelist_t* head, int id);
+freelist_t* remove_ll(freelist_t* head, int id);
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
@@ -136,7 +136,7 @@ void* first_fit (kma_size_t size)
       // if current size available is exactly what is needed
       if (cur->size == size)
       {
-        remove_ll(main->header, cur->id);
+        main->header = remove_ll(main->header, cur->id);
         return cur;
       }
 
@@ -183,9 +183,29 @@ void add_ll(freelist_t* head, void* base, int size)
   cur->next = new;
 }
 
-void remove_ll(freelist_t* head, int id)
+freelist_t* remove_ll(freelist_t* head, int id)
 {
-  ;
+  freelist_t* cur = head;
+  freelist_t* prev = NULL;
+
+  if (cur->id == id)
+  {
+    head = cur->next;
+    return head;
+  }
+
+  while (cur != NULL)
+  {
+    if (cur->id == id)
+    {
+      prev->next = cur->next;
+      return head;
+    }
+    prev = cur;
+    cur = cur->nex;
+  }
+  cur->next = NULL;
+  return head;
 }
 
 #endif // KMA_RM
