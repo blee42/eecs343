@@ -37,6 +37,7 @@
 /************System include***********************************************/
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /************Private include**********************************************/
 #include "kma_page.h"
@@ -49,178 +50,181 @@
  *  structures and arrays, line everything up in neat columns.
  */
 
-// free list holds <base,size> pairs
-typedef struct 
-{
-  int id;
-  void* base;
-  int size;
-  void* next;
-} freelist_t;
+ typedef struct blockheader_t {
 
-// header for each page
-typedef struct
-{
-  void* self;
-  int allocated; // empty page or allocated page
-  kma_page_t* nextpage;
-  freelist_t* header;
-} pageheader_t;
+  int size;
+  void* base;
+  struct blockheader_t* next_block;
+
+ } blockheaderT;
+
+typedef struct pageheader_t {
+
+  void* page;
+  int num_free_blocks;
+  blockheaderT* first_free;
+  struct pageheader_t* next_page;
+
+} pageheaderT;
+
+#define REAL_PAGE_SIZE (8192 - sizeof(pageheaderT))
 
 /************Global Variables*********************************************/
-kma_page_t* entryptr = 0; // entry to page structure
+kma_page_t* first_page = NULL; // entry to page structure
 
 /************Function Prototypes******************************************/
-kma_page_t* new_page(kma_page_t* page);
-void* first_fit(kma_size_t size); // first fit algorithm to find space of specified size
-void add_ll(freelist_t* head, void* base, int size);
-freelist_t* remove_ll(freelist_t* head, int id);
+
+pageheaderT* init_page();
+void* find_first_fit(int size, pageheaderT* current_page);
+void update_malloc_headers(int size, blockheaderT* block, pageheaderT* page);
+void remove_malloc_header(blockheaderT* block, pageheaderT* page);
+void coalesce();
+
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
 
-void*
-kma_malloc(kma_size_t size)
+void* kma_malloc(kma_size_t size)
 {
-  // requested size too large
-  if ((size + sizeof(kma_page_t*)) > page->size)
+  kma_page_t* current_page = first_page;
+  pageheaderT* current_page_header;
+
+  if (current_page == NULL)
+    current_page_header = init_page();
+
+  printf("%lu\n", REAL_PAGE_SIZE);
+
+  if (size > REAL_PAGE_SIZE)
   {
-    free_page(page);
-    return NULL;
+    free_page(current_page);
+    return NULL;  
   }
 
-  pageheader_t* main;
-  void* location;
-
-  // set entry pointer
-  if (entryptr == 0)
-  {
-    kma_page_t* page = new_page(getpage());
-    entryptr = page;
-
-    add_ll(entryptr->header, entryptr->ptr, page->size);
-  }
-
-  main = (pageheader_t*)entryptr->ptr;
-  location = first_fit(size);
-  main->allocated++;
-  
-  return location;
+  return find_first_fit(size, current_page_header); // may point to not first page!
 }
 
-void
-kma_free(void* ptr, kma_size_t size)
+void kma_free(void* ptr, kma_size_t size)
 {
-  pageheader_t* main = (pageheader_t*)entryptr->ptr; 
-  add_ll(main->header, ptr, size);
+  pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
 
-  pageheader_t* cur = main;
-
-  while (cur != NULL)
+  while (current_page_header->page + PAGESIZE < ptr)
   {
-    if (cur->allocated == 0)
+    current_page_header = current_page_header->next_page;
+  }
+
+  blockheaderT* new_block_header = (blockheaderT*) ptr; // need &?
+  new_block_header->size = size;
+  new_block_header->base = ptr;
+
+  blockheaderT* current = current_page_header->first_free;
+  if (current == NULL)
+  {
+    current_page_header->first_free = new_block_header;
+    new_block_header->next_block = NULL;
+  }
+
+  blockheaderT* prev;
+  while (current->base < ptr)
+  {
+    prev = current;
+    current = current->next_block;
+  }
+
+  prev->next_block = new_block_header;
+  new_block_header->next_block = current->next_block;
+
+  coalesce();
+}
+
+pageheaderT* init_page()
+{
+  kma_page_t* current_page = get_page();
+
+  pageheaderT* page_header = (pageheaderT*) (current_page->ptr);
+  blockheaderT* first_block_header = (blockheaderT*) (current_page->ptr + sizeof(pageheaderT));
+
+  page_header->page = current_page->ptr;
+  page_header->num_free_blocks = 1;
+  page_header->first_free = first_block_header;
+
+  first_block_header->size = REAL_PAGE_SIZE;
+  first_block_header->base = (void*) (current_page->ptr + sizeof(pageheaderT));
+
+  return page_header;
+}
+
+void* find_first_fit(int size, pageheaderT* current_page)
+{
+  blockheaderT* current_free_block = current_page->first_free;
+  pageheaderT* really_current_page = current_page;
+
+  while (really_current_page != NULL)
+  {
+    while (current_free_block != NULL)
     {
-      free_page(cur->self);
-    }
-    cur = cur->next;
-  }
-}
-
-kma_page_t* new_page(kma_page_t page)
-{
-  pageheader_t* header;
-  *((kma_page_t**)page->ptr) = page; 
-  header = (pageheader_t*)(page->ptr); // add header to page
-  header->header = (freelist_t*)((int)header + sizeof(pageheader_t)); // allocate free list
-  page->allocated++;
-  return page;
-}
-
-void* first_fit (kma_size_t size)
-{
-  pageheader_t* main = (pageheader_t*)entryptr->ptr;
-  freelist_t* cur = (freelist_t*)main->header;
-
-  while (cur != NULL)
-  {
-    // if current size available is greater than or equal to the size needed
-    if (cur->size >= size)
-    {
-      // if current size available is exactly what is needed
-      if (cur->size == size)
+      if (current_free_block->size - size <= sizeof(blockheaderT))
       {
-        main->header = remove_ll(main->header, cur->id);
-        main.allocated++;
-        return cur;
+        remove_malloc_header(current_free_block, really_current_page);
+        return current_free_block->base;
       }
-
-      // update the free block size
-      cur->base = cur->base + size;
-      cur->size = cur->size - size;
-      main.allocated++;
-      return cur;
+      else if (size < current_free_block->size)
+      {
+        update_malloc_headers(size, current_free_block, really_current_page);
+        return current_free_block->base;
+      }
+      else
+        current_free_block = current_free_block->next_block;
     }
-  }
 
-  // if you get here, then there was no space in this page
-  kma_page_t* page = new_page(getpage());
-  main->nextpage = page;
-  return first_fit(size);
-}
-
-void add_ll(freelist_t* head, void* base, int size)
-{
-  freelist_t* cur = head;
-  freelist_t* prev = NULL;
-
-  freelist_t* new;
-  new->base = base;
-  new->size = size;
-  new->next = NULL;
-
-  if (base < cur->base)
-  {
-    new->next = cur;
-    return;
+    really_current_page = really_current_page->next_page;
   }
   
-  while (cur != NULL)
-  {
-    if (base < cur->base)
-    {
-      prev->next = new;
-      new->next = cur;
-      return;
-    }
-    prev = cur;
-    cur = cur->next;
-  }
-  cur->next = new;
+  // could not find a block on any page
+  really_current_page = init_page();
+  return really_current_page->first_free->base;
 }
 
-freelist_t* remove_ll(freelist_t* head, int id)
+void update_malloc_headers(int size, blockheaderT* block, pageheaderT* page)
 {
-  freelist_t* cur = head;
-  freelist_t* prev = NULL;
+  blockheaderT* new_block_header = (blockheaderT*) (block->base + size); // need &?
+  new_block_header->size = block->size - size;
+  new_block_header->base = block->base + size;
 
-  if (cur->id == id)
+  blockheaderT* current = page->first_free;
+  if (current == block)
   {
-    head = cur->next;
-    return head;
+    page->first_free = new_block_header;
+    new_block_header->next_block = current->next_block;
   }
 
-  while (cur != NULL)
+  blockheaderT* prev;
+  while (current != block)
   {
-    if (cur->id == id)
-    {
-      prev->next = cur->next;
-      return head;
-    }
-    prev = cur;
-    cur = cur->nex;
+    prev = current;
+    current = current->next_block;
   }
-  cur->next = NULL;
-  return head;
+
+  prev->next_block = new_block_header;
+  new_block_header->next_block = current->next_block;
 }
+
+void remove_malloc_header(blockheaderT* block, pageheaderT* page)
+{
+  blockheaderT* current = page->first_free;
+  if (current == block)
+  {
+    page->first_free = current->next_block;
+  }
+
+  blockheaderT* prev;
+  while (current != block)
+  {
+    prev = current;
+    current = current->next_block;
+  }
+
+  prev->next_block = current->next_block;
+}
+
 
 #endif // KMA_RM
