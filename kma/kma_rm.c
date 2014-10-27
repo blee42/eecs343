@@ -61,7 +61,6 @@
 typedef struct pageheader_t {
 
   void* page;
-  int num_free_blocks;
   blockheaderT* first_free;
   struct pageheader_t* next_page;
 
@@ -84,6 +83,34 @@ void coalesce();
 
 /**************Implementation***********************************************/
 
+void print_page(pageheaderT* page)
+{
+  blockheaderT* block = page->first_free;
+  int i = 0;
+  int j = 0;
+
+  while (page != NULL)
+  {
+    printf("==================\n");
+    printf("     PAGE %d      \n", i);
+    printf("==================\n");
+
+    while (block != NULL)
+    {
+      printf("Block %d: ", j);
+      printf("FREE, size %d", block->size);
+      block = block->next_block;
+      j++;
+
+    }
+    j = 0;
+    i++;
+    page = page->next_page;
+  }
+  printf("\n");
+
+}
+
 void* kma_malloc(kma_size_t size)
 {
   printf("MALLOC'ing %d spaces.\n", size);
@@ -100,6 +127,7 @@ void* kma_malloc(kma_size_t size)
     return NULL;  
   }
 
+  // print_page((pageheaderT*)first_page->ptr);
   return find_first_fit(size, current_page_header); // may point to not first page!
 }
 
@@ -145,7 +173,6 @@ pageheaderT* init_page()
   blockheaderT* first_block_header = (blockheaderT*) (current_page->ptr + sizeof(pageheaderT));
 
   page_header->page = current_page->ptr;
-  page_header->num_free_blocks = 1;
   page_header->first_free = first_block_header;
 
   first_block_header->size = REAL_PAGE_SIZE;
@@ -156,6 +183,7 @@ pageheaderT* init_page()
 
 void* find_first_fit(int size, pageheaderT* current_page)
 {
+  printf("Finding first fit of size: %d\n", size);
   blockheaderT* current_free_block = current_page->first_free;
   pageheaderT* really_current_page = current_page;
 
