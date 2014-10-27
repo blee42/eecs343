@@ -86,13 +86,13 @@ void coalesce();
 
 void* kma_malloc(kma_size_t size)
 {
+  printf("MALLOC'ing %d spaces.\n", size);
+
   kma_page_t* current_page = first_page;
   pageheaderT* current_page_header;
 
   if (current_page == NULL)
     current_page_header = init_page();
-
-  printf("%lu\n", REAL_PAGE_SIZE);
 
   if (size > REAL_PAGE_SIZE)
   {
@@ -105,6 +105,7 @@ void* kma_malloc(kma_size_t size)
 
 void kma_free(void* ptr, kma_size_t size)
 {
+  printf("FREE'ing %d spaces.\n", size);
   pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
 
   while (current_page_header->page + PAGESIZE < ptr)
@@ -224,6 +225,58 @@ void remove_malloc_header(blockheaderT* block, pageheaderT* page)
   }
 
   prev->next_block = current->next_block;
+}
+
+void coalesce()
+{
+  pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
+  pageheaderT* previous_page_header;
+  blockheaderT* current_block = current_page_header->first_free;
+  blockheaderT* next_block;
+  
+  // special conditions stuff for pages
+  
+  while (current_page_header != NULL && current_page_header->next_page != NULL)
+  {
+    while (current_block != NULL && current_block->next_block != NULL)
+    {
+      next_block = current_block->next_block;
+      if (next_block->base - (current_block->base + current_block->size) <= sizeof(blockheaderT))
+      {
+        current_block->size = next_block->base + next_block->size - current_block->base;
+        remove_malloc_header(next_block, current_page_header);
+      }
+      else
+      {
+        current_block = current_block->next_block;
+      }
+    }
+    
+    if (current_page_header->first_free->size == REAL_PAGE_SIZE)
+    {
+      if (previous_page_header == NULL)
+      {
+        // previous page is actually second page
+        previous_page_header = current_page_header->next_page;
+        free_page((kma_page_t*) current_page_header->page);
+        first_page->ptr = previous_page_header->page;
+        
+        current_page_header = previous_page_header;
+        previous_page_header = NULL; // in case multiple empty pages
+      }
+      else
+      {
+        previous_page_header->next_page = current_page_header->next_page;
+        free_page((kma_page_t*) current_page_header->page);
+        current_page_header = previous_page_header->next_page;
+      }
+    }
+    else
+    {
+      previous_page_header = current_page_header;
+      current_page_header = current_page_header->next_page;
+    }
+  }
 }
 
 
