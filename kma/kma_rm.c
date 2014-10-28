@@ -113,22 +113,29 @@ void print_page(pageheaderT* page)
 
 void* kma_malloc(kma_size_t size)
 {
-  printf("MALLOC'ing %d spaces.\n", size);
 
-  kma_page_t* current_page = first_page;
+  // kma_page_t* current_page = first_page;
   pageheaderT* current_page_header;
 
-  if (current_page == NULL)
+  if (first_page == NULL)
+  {
     current_page_header = init_page();
+    first_page = (kma_page_t*) (current_page_header->page);
+  }
+
 
   if (size > REAL_PAGE_SIZE)
   {
-    free_page(current_page);
+    // free_page(current_page);
     return NULL;  
   }
 
-  // print_page((pageheaderT*)first_page->ptr);
-  return find_first_fit(size, current_page_header); // may point to not first page!
+  printf("--------------------------------------------------\n");
+  printf("             MALLOC'ing %d spaces.\n", size);
+  printf("--------------------------------------------------\n");
+  void* first_fit = find_first_fit(size, current_page_header); // may point to not first page!
+  print_page((pageheaderT*)first_page->ptr);
+  return first_fit;
 }
 
 void kma_free(void* ptr, kma_size_t size)
@@ -168,9 +175,10 @@ void kma_free(void* ptr, kma_size_t size)
 pageheaderT* init_page()
 {
   kma_page_t* current_page = get_page();
+  *((kma_page_t**)current_page->ptr) = current_page;
 
   pageheaderT* page_header = (pageheaderT*) (current_page->ptr);
-  blockheaderT* first_block_header = (blockheaderT*) (current_page->ptr + sizeof(pageheaderT));
+  blockheaderT* first_block_header = (blockheaderT*) (page_header + sizeof(pageheaderT));
 
   page_header->page = current_page->ptr;
   page_header->first_free = first_block_header;
@@ -185,6 +193,7 @@ void* find_first_fit(int size, pageheaderT* current_page)
 {
   printf("Finding first fit of size: %d\n", size);
   blockheaderT* current_free_block = current_page->first_free;
+  printf("lakshdklfasdfk");
   pageheaderT* really_current_page = current_page;
 
   while (really_current_page != NULL)
