@@ -53,74 +53,82 @@
  typedef struct blockheader_t {
 
   int size;
-  void* base;
   struct blockheader_t* next_block;
 
  } blockheaderT;
 
-typedef struct pageheader_t {
+// typedef struct pageheader_t {
 
-  void* page;
-  blockheaderT* first_free;
-  struct pageheader_t* next_page;
+//   void* page;
+//   blockheaderT* first_free;
+//   struct pageheader_t* next_page;
 
-} pageheaderT;
+// } pageheaderT;
 
-#define REAL_PAGE_SIZE (8192 - sizeof(pageheaderT))
+// #define REAL_PAGE_SIZE (8192 - sizeof(pageheaderT))
+#define REAL_PAGE_SIZE (8192 - sizeof(blockheaderT*))
 
 /************Global Variables*********************************************/
 kma_page_t* first_page = NULL; // entry to page structure
 
 /************Function Prototypes******************************************/
 
-pageheaderT* init_page();
-void* find_first_fit(int size, pageheaderT* current_page);
-void update_malloc_headers(int size, blockheaderT* block, pageheaderT* page);
-void remove_malloc_header(blockheaderT* block, pageheaderT* page);
+void print_pages();
+
+void* find_first_fit(int size);
+void* new_page(int size);
+void update_malloc_headers(int size, blockheaderT* current_block, blockheaderT* previous_block);
+void remove_malloc_header(blockheaderT* current_block, blockheaderT* previous_block);
 void coalesce();
 
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
 
-void print_page(pageheaderT* page)
+void print_pages()
 {
-  blockheaderT* block = page->first_free;
+  blockheaderT* block = *((blockheaderT**) first_page->ptr);
+  void* page = BASEADDR(block);
   int i = 0;
-  int j = 0;
+  int pagenum = 0;
+  printf("==================\n");
+  printf("     PAGE %d      \n", pagenum);
+  printf(" @ %d\n", page + sizeof(blockheaderT*));
+  printf("==================\n");
 
-  while (page != NULL)
+
+  while (block != NULL)
   {
-    printf("==================\n");
-    printf("     PAGE %d      \n", i);
-    printf("==================\n");
 
-    while (block != NULL)
+    if (BASEADDR(block) != page)
     {
-      printf("Block %d: ", j);
-      printf("FREE, size %d", block->size);
-      block = block->next_block;
-      j++;
-
+      page = BASEADDR(block);
+      printf("==================\n");
+      printf("     PAGE %d      \n", pagenum);
+      printf(" @ %d\n", page + sizeof(blockheaderT*));
+      printf("==================\n");
     }
-    j = 0;
+
+    printf("Block %d: ", i);
+    printf("FREE, size %d ", block->size);
+    printf("located at %d.\n\n", block);
+
     i++;
-    page = page->next_page;
+    block = block->next_block; // ok wtf
   }
-  printf("\n");
 
 }
 
 void* kma_malloc(kma_size_t size)
 {
 
-  // kma_page_t* current_page = first_page;
-  pageheaderT* current_page_header;
-
   if (first_page == NULL)
   {
-    current_page_header = init_page();
-    first_page = (kma_page_t*) (current_page_header->page);
+    first_page = get_page();
+    blockheaderT* first_block_header = (blockheaderT*) (first_page->ptr + sizeof(blockheaderT*));
+    first_block_header->size = REAL_PAGE_SIZE;
+    first_block_header->next_block = NULL;
+    *((blockheaderT**) first_page->ptr) = first_block_header;
   }
 
 
@@ -133,187 +141,175 @@ void* kma_malloc(kma_size_t size)
   printf("--------------------------------------------------\n");
   printf("             MALLOC'ing %d spaces.\n", size);
   printf("--------------------------------------------------\n");
-  void* first_fit = find_first_fit(size, current_page_header); // may point to not first page!
-  print_page((pageheaderT*)first_page->ptr);
+  void* first_fit = find_first_fit(size); // may point to not first page!
+  print_pages();
   return first_fit;
 }
 
 void kma_free(void* ptr, kma_size_t size)
 {
   printf("FREE'ing %d spaces.\n", size);
-  pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
+//   pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
 
-  while (current_page_header->page + PAGESIZE < ptr)
-  {
-    current_page_header = current_page_header->next_page;
-  }
+//   while (current_page_header->page + PAGESIZE < ptr)
+//   {
+//     current_page_header = current_page_header->next_page;
+//   }
 
-  blockheaderT* new_block_header = (blockheaderT*) ptr; // need &?
-  new_block_header->size = size;
-  new_block_header->base = ptr;
+//   blockheaderT* new_block_header = (blockheaderT*) ptr; // need &?
+//   new_block_header->size = size;
+//   new_block_header->base = ptr;
 
-  blockheaderT* current = current_page_header->first_free;
-  if (current == NULL)
-  {
-    current_page_header->first_free = new_block_header;
-    new_block_header->next_block = NULL;
-  }
+//   blockheaderT* current = current_page_header->first_free;
+//   if (current == NULL)
+//   {
+//     current_page_header->first_free = new_block_header;
+//     new_block_header->next_block = NULL;
+//   }
 
-  blockheaderT* prev;
-  while (current->base < ptr)
-  {
-    prev = current;
-    current = current->next_block;
-  }
+//   blockheaderT* prev;
+//   while (current->base < ptr)
+//   {
+//     prev = current;
+//     current = current->next_block;
+//   }
 
-  prev->next_block = new_block_header;
-  new_block_header->next_block = current->next_block;
+//   prev->next_block = new_block_header;
+//   new_block_header->next_block = current->next_block;
 
-  coalesce();
+//   coalesce();
 }
 
-pageheaderT* init_page()
+void* find_first_fit(int size)
 {
-  kma_page_t* current_page = get_page();
-  *((kma_page_t**)current_page->ptr) = current_page;
-
-  pageheaderT* page_header = (pageheaderT*) (current_page->ptr);
-  blockheaderT* first_block_header = (blockheaderT*) (page_header + sizeof(pageheaderT));
-
-  page_header->page = current_page->ptr;
-  page_header->first_free = first_block_header;
-
-  first_block_header->size = REAL_PAGE_SIZE;
-  first_block_header->base = (void*) (current_page->ptr + sizeof(pageheaderT));
-
-  return page_header;
-}
-
-void* find_first_fit(int size, pageheaderT* current_page)
-{
-  printf("Finding first fit of size: %d\n", size);
-  blockheaderT* current_free_block = current_page->first_free;
-  printf("lakshdklfasdfk");
-  pageheaderT* really_current_page = current_page;
-
-  while (really_current_page != NULL)
+  printf("hello");
+  blockheaderT* current_free_block = *((blockheaderT**) first_page->ptr);
+  blockheaderT* previous_block = NULL;
+  while (current_free_block != NULL)
   {
-    while (current_free_block != NULL)
+    if (current_free_block->size - size <= sizeof(blockheaderT))
     {
-      if (current_free_block->size - size <= sizeof(blockheaderT))
-      {
-        remove_malloc_header(current_free_block, really_current_page);
-        return current_free_block->base;
-      }
-      else if (size < current_free_block->size)
-      {
-        update_malloc_headers(size, current_free_block, really_current_page);
-        return current_free_block->base;
-      }
-      else
-        current_free_block = current_free_block->next_block;
+      remove_malloc_header(current_free_block, previous_block);
+      return (void*) current_free_block;
     }
-
-    really_current_page = really_current_page->next_page;
+    else if (size < current_free_block->size)
+    {
+      update_malloc_headers(size, current_free_block, previous_block);
+      return (void*) current_free_block;
+    }
+    else
+    {
+      previous_block = current_free_block;
+      current_free_block = current_free_block->next_block;
+    }
   }
-  
-  // could not find a block on any page
-  really_current_page = init_page();
-  return really_current_page->first_free->base;
+
+  // no openings, new page
+  return new_page(size);
 }
 
-void update_malloc_headers(int size, blockheaderT* block, pageheaderT* page)
+void* new_page(int size)
 {
-  blockheaderT* new_block_header = (blockheaderT*) (block->base + size); // need &?
-  new_block_header->size = block->size - size;
-  new_block_header->base = block->base + size;
+  kma_page_t* page = get_page();
+  blockheaderT* first_block_header = (blockheaderT*) (page->ptr + sizeof(blockheaderT*) + size);
+  first_block_header->size = REAL_PAGE_SIZE-size;
+  first_block_header->next_block = NULL;
+  *((blockheaderT**) page->ptr) = first_block_header;
 
-  blockheaderT* current = page->first_free;
-  if (current == block)
-  {
-    page->first_free = new_block_header;
-    new_block_header->next_block = current->next_block;
-  }
-
-  blockheaderT* prev;
-  while (current != block)
-  {
-    prev = current;
-    current = current->next_block;
-  }
-
-  prev->next_block = new_block_header;
-  new_block_header->next_block = current->next_block;
+  return (void*)(page->ptr + sizeof(blockheaderT*));
 }
 
-void remove_malloc_header(blockheaderT* block, pageheaderT* page)
+void update_malloc_headers(int size, blockheaderT* current_block, blockheaderT* previous_block)
 {
-  blockheaderT* current = page->first_free;
-  if (current == block)
-  {
-    page->first_free = current->next_block;
-  }
+  blockheaderT* new_block;
+  new_block = (blockheaderT*) ((long int) current_block + size);
+  printf("new_block_loc: %d\n", new_block);
+  printf("old_block_loc: %d\n", current_block);
+  printf("size: %d\n", current_block->size);
+  printf("next_block_loc: %d\n", (blockheaderT*) current_block->next_block);
+  new_block->size = current_block->size - size;
+  new_block->next_block = current_block->next_block;    
 
-  blockheaderT* prev;
-  while (current != block)
+  if (previous_block == NULL)
   {
-    prev = current;
-    current = current->next_block;
+    *((blockheaderT**) (BASEADDR(current_block))) = new_block;
   }
+  else
+  {
+    // case where all space is taken up does not apply here
+    previous_block->next_block = new_block;
+  }
+}
 
-  prev->next_block = current->next_block;
+void remove_malloc_header(blockheaderT* current_block, blockheaderT* previous_block)
+{
+  previous_block->next_block = current_block->next_block;
+  // blockheaderT* current = page->first_free;
+  // if (current == block)
+  // {
+  //   page->first_free = current->next_block;
+  // }
+
+  // blockheaderT* prev;
+  // while (current != block)
+  // {
+  //   prev = current;
+  //   current = current->next_block;
+  // }
+
+  // prev->next_block = current->next_block;
 }
 
 void coalesce()
 {
-  pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
-  pageheaderT* previous_page_header;
-  blockheaderT* current_block = current_page_header->first_free;
-  blockheaderT* next_block;
+//   pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
+//   pageheaderT* previous_page_header;
+//   blockheaderT* current_block = current_page_header->first_free;
+//   blockheaderT* next_block;
   
-  // special conditions stuff for pages
+//   // special conditions stuff for pages
   
-  while (current_page_header != NULL && current_page_header->next_page != NULL)
-  {
-    while (current_block != NULL && current_block->next_block != NULL)
-    {
-      next_block = current_block->next_block;
-      if (next_block->base - (current_block->base + current_block->size) <= sizeof(blockheaderT))
-      {
-        current_block->size = next_block->base + next_block->size - current_block->base;
-        remove_malloc_header(next_block, current_page_header);
-      }
-      else
-      {
-        current_block = current_block->next_block;
-      }
-    }
+//   while (current_page_header != NULL && current_page_header->next_page != NULL)
+//   {
+//     while (current_block != NULL && current_block->next_block != NULL)
+//     {
+//       next_block = current_block->next_block;
+//       if (next_block->base - (current_block->base + current_block->size) <= sizeof(blockheaderT))
+//       {
+//         current_block->size = next_block->base + next_block->size - current_block->base;
+//         remove_malloc_header(next_block, current_page_header);
+//       }
+//       else
+//       {
+//         current_block = current_block->next_block;
+//       }
+//     }
     
-    if (current_page_header->first_free->size == REAL_PAGE_SIZE)
-    {
-      if (previous_page_header == NULL)
-      {
-        // previous page is actually second page
-        previous_page_header = current_page_header->next_page;
-        free_page((kma_page_t*) current_page_header->page);
-        first_page->ptr = previous_page_header->page;
+//     if (current_page_header->first_free->size == REAL_PAGE_SIZE)
+//     {
+//       if (previous_page_header == NULL)
+//       {
+//         // previous page is actually second page
+//         previous_page_header = current_page_header->next_page;
+//         free_page((kma_page_t*) current_page_header->page);
+//         first_page->ptr = previous_page_header->page;
         
-        current_page_header = previous_page_header;
-        previous_page_header = NULL; // in case multiple empty pages
-      }
-      else
-      {
-        previous_page_header->next_page = current_page_header->next_page;
-        free_page((kma_page_t*) current_page_header->page);
-        current_page_header = previous_page_header->next_page;
-      }
-    }
-    else
-    {
-      previous_page_header = current_page_header;
-      current_page_header = current_page_header->next_page;
-    }
-  }
+//         current_page_header = previous_page_header;
+//         previous_page_header = NULL; // in case multiple empty pages
+//       }
+//       else
+//       {
+//         previous_page_header->next_page = current_page_header->next_page;
+//         free_page((kma_page_t*) current_page_header->page);
+//         current_page_header = previous_page_header->next_page;
+//       }
+//     }
+//     else
+//     {
+//       previous_page_header = current_page_header;
+//       current_page_header = current_page_header->next_page;
+//     }
+//   }
 }
 
 
