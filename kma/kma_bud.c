@@ -53,6 +53,7 @@
  // header at the top of each allocated
  // or free block
  typedef struct allocheader_t {
+   void* start;
    int size;
    struct allocheader_t* next;
  } allocheaderT;
@@ -77,23 +78,28 @@ typedef struct freeheaders_l {
 
 typedef struct pageheader_t {
   kma_page_t* page;
+  struct pageheader_t* next;
   freeheadersL free_headers;
   // int[32] bitmap; // = {0}
  } pageheaderT;
 
 #define REALSIZE(size) (size+sizeof(allocheaderT))
+#define PAGE_HEADER(page) ((pageheaderT*) (page->ptr + sizeof(allocheaderT)))
+#define ALLOC_START(ptr) ((void*) ((long int) ptr + sizeof(allocheaderT)))
 
 /************Global Variables*********************************************/
 
 kma_page_t* first_page = NULL;
+int total = 0;
 
 /************Function Prototypes******************************************/
 
-void init_page(kma_page_t* page);
+void print_pages();
+kma_page_t* init_page(kma_page_t* page);
 void* get_free_entry();
 void* get_free_buffer(int size);
-int get_required_buffer_size(int size);
-void split_buffer();
+freelistL* get_required_buffer(int size, pageheaderT* page_header);
+freelistL* split_buffer(freelistL* buffer_size, pageheaderT* page_header);
 
 void* get_buddy();
 void coalesce();
@@ -102,32 +108,57 @@ void coalesce();
 
 /**************Implementation***********************************************/
 
+void print_pages()
+{
+  pageheaderT* page = PAGE_HEADER(first_page);
+  freelistL* buffer = get_required_buffer(1, page);
+  allocheaderT* alloc = buffer->first_block;
+
+  int i = 32;
+  int j = 0;
+
+  while (page != NULL)
+  {
+    printf("-----------------\n");
+    printf("     PAGE %d\n", page->page->id);
+    printf("-----------------\n");
+    while (buffer != NULL)
+    {
+      alloc = buffer->first_block;
+      printf("\n** Buffer %d **\n", i);
+      while (alloc != NULL)
+      {
+        printf("* Free %d: %d, next: %d\n", j, alloc, alloc->next);
+        alloc = alloc->next;
+        j++;
+      }
+      j = 0;
+      i = i * 2;
+      buffer = buffer->bigger_size;
+    }
+    page = page->next;
+  }
+}
+
 void* kma_malloc(kma_size_t size)
 {
-  printf("%d\n", REALSIZE(size)-size);
-  if (REALSIZE(size) > PAGESIZE)
+  total += size;
+  if (REALSIZE(size)+sizeof(pageheaderT) > PAGESIZE)
     return NULL;
 
   if (first_page == NULL)
   {
-    init_page(first_page);
+    first_page = init_page(first_page);
+    kma_malloc(sizeof(pageheaderT));
   }
 
-  // int buffer_size = get_required_buffer_size(REALSIZE(size));
-
-  // void* allocation = get_free_buffer(buffer_size);
-  // if (allocation != NULL)
-  // {
-  //   return NULL;
-  // }
-
-
-  // still need to think about page stuff
-
-  return NULL;
-
-
-
+  printf("--------------------------------------------------\n");
+  printf("             MALLOC'ing %d spaces.\n", size);
+  printf("              TOTAL REQUESTED: %d\n", total);
+  printf("--------------------------------------------------\n");
+  void* allocation = get_free_buffer(size);
+  print_pages();
+  return allocation;
 }
 
 void kma_free(void* ptr, kma_size_t size)
@@ -138,15 +169,14 @@ void kma_free(void* ptr, kma_size_t size)
 
 }
 
-void init_page(kma_page_t* page)
+kma_page_t* init_page(kma_page_t* page)
 {
   page = get_page();
-  pageheaderT* page_headers = (pageheaderT*) (page->ptr);
+  pageheaderT* page_headers = PAGE_HEADER(page);
   page_headers->page = page;
 
   freeheadersL* freeheaders = &page_headers->free_headers;
   
-
   freeheaders->buffer32.bigger_size = &freeheaders->buffer64;
   freeheaders->buffer64.bigger_size = &freeheaders->buffer128;
   freeheaders->buffer128.bigger_size = &freeheaders->buffer256;
@@ -157,50 +187,140 @@ void init_page(kma_page_t* page)
   freeheaders->buffer4096.bigger_size = &freeheaders->buffer8192;
   freeheaders->buffer8192.bigger_size = NULL;
 
-}
+  allocheaderT* buffer = (allocheaderT*) (page->ptr);
+  buffer->start = ALLOC_START(buffer);
+  buffer->size = 8192;
+  buffer->next = NULL;
+  freeheaders->buffer8192.first_block = buffer;
 
-int get_required_buffer_size(int size)
-{
-  // think of a way to optimize
-  if (size <= 32)
-    return 32;
-  else if (size <= 64)
-    return 64;
-  else if (size <= 128)
-    return 128;
-  else if (size <= 256)
-    return 256;
-  else if (size <= 512)
-    return 512;
-  else if (size <= 1024)
-    return 1024;
-  else if (size <= 2048)
-    return 2048;
-  else if (size <= 4096)
-    return 4096;
-  else
-    return 8192;
+  return page;
 }
 
 void* get_free_buffer(int size)
 {
-  freeheadersL* headers;
-  // search in list
-  split_buffer();
+  pageheaderT* page_header = PAGE_HEADER(first_page);
+  pageheaderT* prev_page = NULL;
 
-  return NULL;
+  int i = 0;
+  allocheaderT* to_be_allocated;
+  freelistL* buffer_size = get_required_buffer(REALSIZE(size), page_header);
+
+  while (page_header != NULL)
+  {
+    while (buffer_size != NULL && buffer_size->first_block == NULL)
+    {
+      buffer_size = buffer_size->bigger_size;
+      i++;
+    }
+
+    if (buffer_size != NULL)
+    {
+      to_be_allocated = buffer_size->first_block;
+      if (i == 0)
+      {
+        buffer_size->first_block = to_be_allocated->next;
+      }
+      else
+      {
+        for(; i > 0; i--)
+        {
+          buffer_size = split_buffer(buffer_size, page_header);
+        }
+        to_be_allocated = buffer_size->first_block;
+        buffer_size->first_block = to_be_allocated->next;
+      }
+      return to_be_allocated->start;
+    }
+    else
+    {
+      prev_page = page_header;
+      page_header = page_header->next;
+      buffer_size = get_required_buffer(REALSIZE(size), page_header);
+      i = 0;
+    } 
+  }
+
+  kma_page_t* new_page = init_page(NULL);
+  page_header = PAGE_HEADER(new_page);
+  prev_page->next = page_header;
+  buffer_size = get_required_buffer(sizeof(pageheaderT), page_header);
+  to_be_allocated = buffer_size->first_block;
+  i = 0;
+
+  while (buffer_size != NULL && buffer_size->first_block == NULL)
+  {
+    buffer_size = buffer_size->bigger_size;
+    i++;
+  }
+
+  for(; i > 0; i--)
+  {
+    buffer_size = split_buffer(buffer_size, page_header);
+  }
+
+  to_be_allocated = buffer_size->first_block;
+  buffer_size->first_block = to_be_allocated->next;
+
+  return get_free_buffer(size);
 }
 
-void split_buffer()
+freelistL* get_required_buffer(int size, pageheaderT* page_header)
 {
-  // find out size of split
-  // iter through n/2-1 of bitmap, set next to NULL
-  // assign 0 through n/2-1 to LEFT
+  freeheadersL* freeheaders = &page_header->free_headers;
+  if (size <= 32)
+    return &freeheaders->buffer32;
+  else if (size <= 64)
+    return &freeheaders->buffer64;
+  else if (size <= 128)
+    return &freeheaders->buffer128;
+  else if (size <= 256)
+    return &freeheaders->buffer256;
+  else if (size <= 512)
+    return &freeheaders->buffer512;
+  else if (size <= 1024)
+    return &freeheaders->buffer1024;
+  else if (size <= 2048)
+    return &freeheaders->buffer2048;
+  else if (size <= 4096)
+    return &freeheaders->buffer4096;
+  else
+    return &freeheaders->buffer8192;
+}
 
-  // assign n/2-n to RIGHT
+// return a pointer to the left buffer
+freelistL* split_buffer(freelistL* buffer_size, pageheaderT* page_header)
+{
 
-  // change alloc lists
+  // remove from original list
+  allocheaderT* original = buffer_size->first_block;
+  buffer_size->first_block = original->next;
 
+  // make two new ones
+  int new_size = (original->size) / 2;
+  allocheaderT* new_buffer = (allocheaderT*) ((long int) original + new_size); // -1?
+  new_buffer->size = new_size;
+  new_buffer->start = ALLOC_START(new_buffer);
+  new_buffer->next = NULL;
+  original->size = new_size;
+  original->next = new_buffer;
+
+  // add both new ones to the new list
+  freelistL* new_buffer_size = get_required_buffer(new_size, page_header);
+  allocheaderT* current_buffer = new_buffer_size->first_block;
+  if (current_buffer == NULL)
+  {
+    new_buffer_size->first_block = original;
+  }
+  else
+  {
+    while (current_buffer->next != NULL)
+    {
+      current_buffer = current_buffer->next;
+    }
+    current_buffer->next = original;    
+  }
+
+  return new_buffer_size;
 }
 
 void* get_buddy()
