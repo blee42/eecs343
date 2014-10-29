@@ -90,25 +90,28 @@ void print_pages()
 {
   blockheaderT* block = *((blockheaderT**) first_page->ptr);
   void* page = BASEADDR(block);
+
   int i = 0;
-  int pagenum = 0;
   printf("==================\n");
-  printf("     PAGE %d      \n", pagenum);
-  printf(" @ %d\n", page + sizeof(blockheaderT*));
+  if (page == first_page->ptr)
+    printf("     PAGE %d      \n", first_page->id);
+  else
+    printf("     PAGE %d      \n", (*((kma_page_t**) page))->id);
+  printf("   @ %d\n", page + sizeof(blockheaderT*));
   printf("==================\n");
 
 
   while (block != NULL)
   {
 
-    if (BASEADDR(block) != page)
-    {
-      page = BASEADDR(block);
-      printf("==================\n");
-      printf("     PAGE %d      \n", pagenum);
-      printf(" @ %d\n", page + sizeof(blockheaderT*));
-      printf("==================\n");
-    }
+    // if (BASEADDR(block) != page)
+    // {
+    //   page = BASEADDR(block);
+    //   printf("==================\n");
+    //   printf("     PAGE %d      \n", ((kma_page_t*) page)->id);
+    //   printf("   @ %d\n", page + sizeof(void*));
+    //   printf("==================\n");
+    // }
 
     printf("Block %d: ", i);
     printf("FREE, size %d ", block->size);
@@ -145,7 +148,7 @@ void* kma_malloc(kma_size_t size)
   printf("              TOTAL REQUESTED: %d\n", total);
   printf("--------------------------------------------------\n");
   void* first_fit = find_first_fit(size); // may point to not first page!
-  // print_pages();
+  print_pages();
   return first_fit;
 }
 
@@ -197,11 +200,12 @@ void* find_first_fit(int size)
 {
   blockheaderT* current_free_block = *((blockheaderT**) first_page->ptr);
   blockheaderT* previous_block = NULL;
-  printf("loc of current: %d\n", current_free_block->next_block);
-  printf("size: %d\n", current_free_block->size);
 
   while (current_free_block != NULL)
   {
+    printf("loc of current: %d\n", current_free_block);
+    printf("loc of next: %d\n", current_free_block->next_block);
+    printf("size: %d\n -----\n\n", current_free_block->size);
     if (current_free_block->size - size <= sizeof(blockheaderT))
     {
       remove_malloc_header(current_free_block, previous_block);
@@ -226,12 +230,20 @@ void* find_first_fit(int size)
 void* new_page(int size, blockheaderT* previous_block)
 {
   kma_page_t* page = get_page();
+  *((kma_page_t**)page->ptr) = page;
+
   blockheaderT* first_block_header = (blockheaderT*) (page->ptr + sizeof(blockheaderT*) + size);
   first_block_header->size = REAL_PAGE_SIZE-size;
   first_block_header->next_block = NULL;
-  *((blockheaderT**) page->ptr) = first_block_header;
 
-  previous_block->next_block = first_block_header;
+  if (previous_block == NULL)
+  {
+    *((blockheaderT**) first_page->ptr) = first_block_header;
+  }
+  else
+  {
+    previous_block->next_block = first_block_header;
+  }
 
   return (void*)(page->ptr + sizeof(blockheaderT*));
 }
@@ -248,7 +260,7 @@ void update_malloc_headers(int size, blockheaderT* current_block, blockheaderT* 
 
   if (previous_block == NULL)
   {
-    *((blockheaderT**) (BASEADDR(current_block))) = new_block;
+    *((blockheaderT**) (first_page->ptr)) = new_block;
   }
   else
   {
@@ -261,9 +273,12 @@ void remove_malloc_header(blockheaderT* current_block, blockheaderT* previous_bl
 {
   if (previous_block == NULL)
   {
-
+    *((blockheaderT**) first_page->ptr) = current_block->next_block;
   }
-  previous_block->next_block = current_block->next_block;
+  else
+  {
+    previous_block->next_block = current_block->next_block;
+  }
   // blockheaderT* current = page->first_free;
   // if (current == block)
   // {
