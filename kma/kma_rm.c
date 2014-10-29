@@ -154,17 +154,41 @@ void* kma_malloc(kma_size_t size)
 
 void kma_free(void* ptr, kma_size_t size)
 {
-  printf("FREE'ing %d spaces.\n", size);
-  // blockheaderT* first_block_header = *(blockheaderT**) BASEADDR(ptr);
-  // blockheaderT* previous_block = NULL;
+  printf("--------------------------------------------------\n");
+  printf("              FREE'ing %d spaces.\n", size);
+  printf("--------------------------------------------------\n");
 
-  // while (first_block_header != NULL)
-  // {
-  //   if ((int)first_block_header > (int)ptr)
-  //   {
-  //     // update_malloc_headers(size, cu)
-  //   }
-  // }
+  blockheaderT* current_free_block = *((blockheaderT**) first_page->ptr);
+  blockheaderT* previous_block = NULL;
+
+  printf("current_free_block: %d\n", current_free_block);
+  printf("ptr: %d\n", ptr);
+
+  while (current_free_block != NULL)
+  {
+    if ((int) current_free_block > (int) ptr)
+    {
+      blockheaderT* new_block = (blockheaderT*) ptr;
+      new_block->size = size;
+      new_block->next_block = current_free_block;    
+
+      if (previous_block == NULL)
+      {
+        *((blockheaderT**) (first_page->ptr)) = new_block;
+      }
+      else
+      {
+        previous_block->next_block = new_block;
+      }
+      coalesce();
+      return;
+    }
+    else
+    {
+      previous_block = current_free_block;
+      current_free_block = current_free_block->next_block;
+    }
+  }
 //   pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
 
 //   while (current_page_header->page + PAGESIZE < ptr)
@@ -203,9 +227,9 @@ void* find_first_fit(int size)
 
   while (current_free_block != NULL)
   {
-    printf("loc of current: %d\n", current_free_block);
-    printf("loc of next: %d\n", current_free_block->next_block);
-    printf("size: %d\n -----\n\n", current_free_block->size);
+    // printf("loc of current: %d\n", current_free_block);
+    // printf("loc of next: %d\n", current_free_block->next_block);
+    // printf("size: %d\n -----\n\n", current_free_block->size);
     if (current_free_block->size - size <= sizeof(blockheaderT))
     {
       remove_malloc_header(current_free_block, previous_block);
