@@ -37,6 +37,7 @@
 /************System include***********************************************/
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /************Private include**********************************************/
 #include "kma_page.h"
@@ -49,14 +50,18 @@
  *  structures and arrays, line everything up in neat columns.
  */
 
-#define PAGESIZE 8192
+ // header at the top of each allocated
+ // or free block
+ typedef struct allocheader_t {
+   int size;
+   struct allocheader_t* next;
+ } allocheaderT;
 
- typedef struct header_t {
-  int[32] bitmap; // = {0}
-  freeheadersL free_headers;
-  kma_page_t* next_page;
- } headerT;
-
+// each element in the array
+typedef struct freelist_l {
+  allocheaderT* first_block;
+  struct freelist_l* bigger_size; // 32 -> 64, 64 -> 128, etc.
+} freelistL;
 
 typedef struct freeheaders_l {
   freelistL buffer32;
@@ -70,23 +75,23 @@ typedef struct freeheaders_l {
   freelistL buffer8192;
 } freeheadersL;
 
-typedef struct freelist_l {
-  int id;
-  int size;
-  int numfree;
+typedef struct pageheader_t {
+  kma_page_t* page;
+  freeheadersL free_headers;
+  // int[32] bitmap; // = {0}
+ } pageheaderT;
 
-  void* base;
-  void* next;
-} freelistL;
+#define REALSIZE(size) (size+sizeof(allocheaderT))
 
 /************Global Variables*********************************************/
 
-kma_page_t* start = NULL;
+kma_page_t* first_page = NULL;
 
 /************Function Prototypes******************************************/
 
-void init_page();
+void init_page(kma_page_t* page);
 void* get_free_entry();
+void* get_free_buffer(int size);
 int get_required_buffer_size(int size);
 void split_buffer();
 
@@ -99,25 +104,27 @@ void coalesce();
 
 void* kma_malloc(kma_size_t size)
 {
-  int real_size = size + sizeof(bitmapL);
-  if (real_size > PAGESIZE)
+  printf("%d\n", REALSIZE(size)-size);
+  if (REALSIZE(size) > PAGESIZE)
     return NULL;
 
-  if (start == NULL)
+  if (first_page == NULL)
   {
-    init_page();
+    init_page(first_page);
   }
 
-  int buffer_size = get_required_buffer_size(real_size);
+  // int buffer_size = get_required_buffer_size(REALSIZE(size));
 
-  void* allocation = get_free_buffer(buffer_size);
-  if (allocation != NULL)
-  {
-    return 
-  }
+  // void* allocation = get_free_buffer(buffer_size);
+  // if (allocation != NULL)
+  // {
+  //   return NULL;
+  // }
 
 
   // still need to think about page stuff
+
+  return NULL;
 
 
 
@@ -127,24 +134,28 @@ void kma_free(void* ptr, kma_size_t size)
 {
   // change bitmap
   // change free list
-  // coalesce()
+  coalesce();
 
 }
 
-void init_page()
+void init_page(kma_page_t* page)
 {
-  start = get_page();
-  freeheadersL* freeheaders = (freeheadersL*) (start->ptr + sizeof(bitmapL));
+  page = get_page();
+  pageheaderT* page_headers = (pageheaderT*) (page->ptr);
+  page_headers->page = page;
 
-  freeheaders.buffer32.size = 32;
-  freeheaders.buffer64.size = 64;
-  freeheaders.buffer128.size = 128;
-  freeheaders.buffer256.size = 256;
-  freeheaders.buffer512.size = 512;
-  freeheaders.buffer1024.size = 1024;
-  freeheaders.buffer2048.size = 2048;
-  freeheaders.buffer4096.size = 4096;
-  freeheaders.buffer8192.size = 8192;
+  freeheadersL* freeheaders = &page_headers->free_headers;
+  
+
+  freeheaders->buffer32.bigger_size = &freeheaders->buffer64;
+  freeheaders->buffer64.bigger_size = &freeheaders->buffer128;
+  freeheaders->buffer128.bigger_size = &freeheaders->buffer256;
+  freeheaders->buffer256.bigger_size = &freeheaders->buffer512;
+  freeheaders->buffer512.bigger_size = &freeheaders->buffer1024;
+  freeheaders->buffer1024.bigger_size = &freeheaders->buffer2048;
+  freeheaders->buffer2048.bigger_size = &freeheaders->buffer4096;
+  freeheaders->buffer4096.bigger_size = &freeheaders->buffer8192;
+  freeheaders->buffer8192.bigger_size = NULL;
 
 }
 
@@ -173,10 +184,11 @@ int get_required_buffer_size(int size)
 
 void* get_free_buffer(int size)
 {
-  freeheadersL* headers = (freeheadersL*) (start->ptr + sizeof(bitmapL));
+  freeheadersL* headers;
   // search in list
-  split_buffer()
+  split_buffer();
 
+  return NULL;
 }
 
 void split_buffer()
@@ -193,6 +205,8 @@ void split_buffer()
 
 void* get_buddy()
 {
+
+  return NULL;
 
 }
 

@@ -81,6 +81,7 @@ void* new_page(int size, blockheaderT* previous_block);
 void update_malloc_headers(int size, blockheaderT* current_block, blockheaderT* previous_block);
 void remove_malloc_header(blockheaderT* current_block, blockheaderT* previous_block);
 void coalesce();
+void clear_empty_pages();
 
 /************External Declaration*****************************************/
 
@@ -103,7 +104,6 @@ void print_pages()
 
   while (block != NULL)
   {
-
     // if (BASEADDR(block) != page)
     // {
     //   page = BASEADDR(block);
@@ -114,13 +114,14 @@ void print_pages()
     // }
 
     printf("Block %d: ", i);
-    printf("FREE, size %d ", block->size);
-    printf("located at %d.\n\n", block);
+    printf("size %d ", block->size);
+    printf("located at %d. Next one at %d.\n", block, block->next_block);
 
     i++;
     block = block->next_block; // ok wtf
   }
 
+  printf("\n");
 }
 
 void* kma_malloc(kma_size_t size)
@@ -289,6 +290,7 @@ void remove_malloc_header(blockheaderT* current_block, blockheaderT* previous_bl
 void coalesce()
 {
   blockheaderT* current_block = *((blockheaderT**) first_page->ptr);
+  blockheaderT* previous = NULL;
   while (current_block != NULL)
   {
     if (current_block->next_block != NULL &&
@@ -300,7 +302,38 @@ void coalesce()
     }
     else
     {
+      previous = current_block;
       current_block = current_block->next_block;
+    }
+
+    // freeing page
+    if (current_block->size == REAL_PAGE_SIZE)
+    {
+      if (BASEADDR(current_block) != (first_page->ptr) && previous != NULL)
+      {
+        previous->next_block = current_block->next_block;
+        free_page(*((kma_page_t**) BASEADDR(current_block)));
+      }
+      else if (BASEADDR(current_block) != (first_page->ptr) && previous == NULL)
+      {
+        *((blockheaderT**) first_page->ptr) = current_block->next_block;
+        free_page(*((kma_page_t**) BASEADDR(current_block)));
+      }
+      else
+      {
+        kma_page_t* temp = first_page;
+        if (current_block->next_block != NULL)
+        {
+          first_page = *((kma_page_t**) BASEADDR(current_block->next_block));
+          first_page->ptr = current_block->next_block;
+        }
+        else
+        {
+          first_page = NULL;
+        }
+
+        free_page(temp);
+      }
     }
   }
 //   pageheaderT* current_page_header = (pageheaderT*) (first_page->ptr);
@@ -353,5 +386,9 @@ void coalesce()
 //   }
 }
 
+void clear_empty_pages()
+{
+
+}
 
 #endif // KMA_RM
