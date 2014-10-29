@@ -75,7 +75,7 @@ kma_page_t* first_page = NULL; // entry to page structure
 
 pageheaderT* init_page();
 void* find_first_fit(int size, pageheaderT* current_page);
-void update_malloc_headers(int size, blockheaderT* block, pageheaderT* page);
+void* update_malloc_headers(int size, blockheaderT* block, pageheaderT* page);
 void remove_malloc_header(blockheaderT* block, pageheaderT* page);
 void coalesce();
 
@@ -119,8 +119,13 @@ void* kma_malloc(kma_size_t size)
 
   if (first_page == NULL)
   {
+    printf("we only see this once right...\n");
     current_page_header = init_page();
     first_page = (kma_page_t*) (current_page_header->page);
+  }
+  else
+  {
+    current_page_header = (pageheaderT*) first_page;
   }
 
 
@@ -134,7 +139,8 @@ void* kma_malloc(kma_size_t size)
   printf("             MALLOC'ing %d spaces.\n", size);
   printf("--------------------------------------------------\n");
   void* first_fit = find_first_fit(size, current_page_header); // may point to not first page!
-  print_page((pageheaderT*)first_page->ptr);
+  printf("found fit at: %d\n",(int)first_fit );
+  // print_page((pageheaderT*)first_page->ptr);
   return first_fit;
 }
 
@@ -175,16 +181,30 @@ void kma_free(void* ptr, kma_size_t size)
 pageheaderT* init_page()
 {
   kma_page_t* current_page = get_page();
-  *((kma_page_t**)current_page->ptr) = current_page;
 
+  if (first_page == NULL)
+  {
+    first_page = *((kma_page_t**) current_page->ptr);
+  }
+  *((kma_page_t**)current_page->ptr) = current_page;
   pageheaderT* page_header = (pageheaderT*) (current_page->ptr);
   blockheaderT* first_block_header = (blockheaderT*) (page_header + sizeof(pageheaderT));
+
+  // first_page->ptr = *((pageheaderT**)page_header);
 
   page_header->page = current_page->ptr;
   page_header->first_free = first_block_header;
 
   first_block_header->size = REAL_PAGE_SIZE;
-  first_block_header->base = (void*) (current_page->ptr + sizeof(pageheaderT));
+  // first_block_header->base = (void*) (first_block_header + sizeof(pageheaderT));
+  first_block_header->base = (void*) (first_block_header);
+
+  printf("====================================\n");
+  printf(" INIT PAGE %d      \n", (int)current_page->ptr);
+  printf(" Page header base: %d\n", (int)page_header->page);
+  printf(" First block : %d\n", (int)page_header->first_free);
+  printf(" First block base: %d\n", (int)first_block_header->base);
+  printf("====================================\n");
 
   return page_header;
 }
@@ -192,8 +212,8 @@ pageheaderT* init_page()
 void* find_first_fit(int size, pageheaderT* current_page)
 {
   printf("Finding first fit of size: %d\n", size);
+  printf("On page: %d\n", (int)current_page );
   blockheaderT* current_free_block = current_page->first_free;
-  printf("lakshdklfasdfk");
   pageheaderT* really_current_page = current_page;
 
   while (really_current_page != NULL)
@@ -207,11 +227,15 @@ void* find_first_fit(int size, pageheaderT* current_page)
       }
       else if (size < current_free_block->size)
       {
-        update_malloc_headers(size, current_free_block, really_current_page);
-        return current_free_block->base;
+        void* location = update_malloc_headers(size, current_free_block, really_current_page);
+        printf("the current free block: %d\n",(int)location );
+        return location;
       }
       else
+      {
+        printf("block is not available\n");
         current_free_block = current_free_block->next_block;
+      }
     }
 
     really_current_page = really_current_page->next_page;
@@ -222,28 +246,37 @@ void* find_first_fit(int size, pageheaderT* current_page)
   return really_current_page->first_free->base;
 }
 
-void update_malloc_headers(int size, blockheaderT* block, pageheaderT* page)
+void* update_malloc_headers(int size, blockheaderT* block, pageheaderT* page)
 {
-  blockheaderT* new_block_header = (blockheaderT*) (block->base + size); // need &?
-  new_block_header->size = block->size - size;
-  new_block_header->base = block->base + size;
+  printf("in update_malloc_headers with size: %d\n", size);
+  printf("new block location: %d\n",(int)block->base );
+  blockheaderT* new_block_header = (blockheaderT*) block->base; // need &?
+  new_block_header->size = size;
+  new_block_header->base = (void*) ((int)new_block_header + sizeof(blockheaderT));
+  printf("new block header poitns to: %d\n", (int)new_block_header );
+  printf("size of blockheaderT %lu \n", sizeof(blockheaderT));
+  printf("new_block_header points to: %d\n",(int)(new_block_header->base) );
+  printf("finished making new node\n");
 
   blockheaderT* current = page->first_free;
   if (current == block)
   {
     page->first_free = new_block_header;
     new_block_header->next_block = current->next_block;
+    return new_block_header->base;
   }
 
-  blockheaderT* prev;
+  blockheaderT* prev = NULL;
   while (current != block)
   {
     prev = current;
     current = current->next_block;
+    return new_block_header->base;
   }
 
   prev->next_block = new_block_header;
   new_block_header->next_block = current->next_block;
+  return new_block_header->base;
 }
 
 void remove_malloc_header(blockheaderT* block, pageheaderT* page)
