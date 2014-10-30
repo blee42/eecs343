@@ -81,28 +81,27 @@ typedef struct pageheader_t {
   struct pageheader_t* next;
   freeheadersL free_headers;
   int used;
-  // int[32] bitmap; // = {0}
  } pageheaderT;
 
 #define REALSIZE(size) (size+sizeof(allocheaderT))
-#define PAGE_HEADER(page) ((pageheaderT*) (page->ptr + sizeof(allocheaderT)))
+#define PAGE_HEADER(page) ((pageheaderT*) ((long int) page->ptr + sizeof(allocheaderT)))
 #define ALLOC_START(ptr) ((void*) ((long int) ptr + sizeof(allocheaderT)))
 
 /************Global Variables*********************************************/
 
 kma_page_t* first_page = NULL;
-int total = 0;
 
 /************Function Prototypes******************************************/
 
-void print_pages();
-kma_page_t* init_page(kma_page_t*);
+// void print_pages(); debug function
+
+kma_page_t* init_page();
 void* get_free_entry();
 void* get_free_buffer(int);
 freelistL* get_required_buffer(int, pageheaderT*);
 freelistL* split_buffer(freelistL*, pageheaderT*);
 
-void coalesce();
+void coalesce(pageheaderT*);
 allocheaderT* get_buddy();
 int round_up(int);
     
@@ -110,90 +109,72 @@ int round_up(int);
 
 /**************Implementation***********************************************/
 
-void print_pages()
-{
-  pageheaderT* page = PAGE_HEADER(first_page);
-  freelistL* buffer = get_required_buffer(1, page);
-  allocheaderT* alloc = buffer->first_block;
+// void print_pages()
+// {
+//   pageheaderT* page = PAGE_HEADER(first_page);
+//   freelistL* buffer = get_required_buffer(1, page);
+//   allocheaderT* alloc = buffer->first_block;
 
-  int i = 32;
-  int j = 0;
+//   int i = 32;
+//   int j = 0;
 
-  while (page != NULL)
-  {
+//   while (page != NULL)
+//   {
 
-    printf("-----------------\n");
-    printf("     PAGE %d\n", page->page->id);
-    printf("      AT: %d\n", page);
-    printf("    USED: %d\n", page->used);
-    printf("    NEXT: %d\n", page->next);
-    printf("-----------------\n");
-    while (buffer != NULL)
-    {
-      alloc = buffer->first_block;
-      printf("\n** Buffer %d **\n", i);
-      while (alloc != NULL)
-      {
-        printf("* Free %d: %d, next: %d, of size: %d\n", j, alloc, alloc->next, alloc->size);
-        alloc = alloc->next;
-        j++;
-      }
-      j = 0;
-      i = i * 2;
-      buffer = buffer->bigger_size;
-    }
-    page = page->next;
-    buffer = get_required_buffer(1, page);
-    i = 32;
-  }
-
-  // if (total >= 67678)
-  //   scanf("%d", &i);
-}
+//     printf("-----------------\n");
+//     printf("     PAGE %d\n", page->page->id);
+//     printf("      AT: %d\n", page);
+//     printf("    USED: %d\n", page->used);
+//     printf("    NEXT: %d\n", page->next);
+//     printf("-----------------\n");
+//     while (buffer != NULL)
+//     {
+//       alloc = buffer->first_block;
+//       printf("\n** Buffer %d **\n", i);
+//       while (alloc != NULL)
+//       {
+//         printf("* Free %d: %d, next: %d, of size: %d\n", j, alloc, alloc->next, alloc->size);
+//         alloc = alloc->next;
+//         j++;
+//       }
+//       j = 0;
+//       i = i * 2;
+//       buffer = buffer->bigger_size;
+//     }
+//     page = page->next;
+//     buffer = get_required_buffer(1, page);
+//     i = 32;
+//   }
+// }
 
 void* kma_malloc(kma_size_t size)
 {
-  total += size;
   if (REALSIZE(size)+sizeof(pageheaderT) > PAGESIZE)
     return NULL;
 
   if (first_page == NULL)
   {
-    first_page = init_page(first_page);
+    first_page = init_page();
     kma_malloc(sizeof(pageheaderT));
     PAGE_HEADER(first_page)->used = 0;
   }
 
-  printf("--------------------------------------------------\n");
-  printf("             MALLOC'ing %d spaces.\n", size);
-  printf("              TOTAL REQUESTED: %d\n", total);
-  printf("--------------------------------------------------\n");
   void* allocation = get_free_buffer(size);
-  // print_pages();
   return allocation;
 }
 
 void kma_free(void* ptr, kma_size_t size)
 {
-
-
-  printf("--------------------------------------------------\n");
-  printf("              FREE'ing %d spaces.\n", size);
-  printf("                @: %d\n", ptr);
-  printf("--------------------------------------------------\n");
-
-  int a;  
-  // print_pages();
   pageheaderT* page = (pageheaderT*) (BASEADDR(ptr)+sizeof(allocheaderT));
   freelistL* buffer = get_required_buffer(size, page);
   allocheaderT* alloc = buffer->first_block;
 
-  allocheaderT* new_alloc = (allocheaderT*) (ptr);
-  new_alloc->start = ALLOC_START(new_alloc);
-  new_alloc->size = round_up(size)  ; // fix this
-  new_alloc->next = NULL;
-
-  if (new_alloc->size != PAGESIZE)
+  if (round_up(size) != PAGESIZE)
+  {
+    allocheaderT* new_alloc = (allocheaderT*) (ptr);
+    new_alloc->start = ALLOC_START(new_alloc);
+    new_alloc->size = round_up(size);
+    new_alloc->next = NULL;
     if (alloc == NULL)
     {
       buffer->first_block = new_alloc;
@@ -218,8 +199,9 @@ void kma_free(void* ptr, kma_size_t size)
           alloc = alloc->next;
         }
       } 
-    coalesce();
+    coalesce(page);
     }
+  }
 
   page->used -= 1;
 
@@ -252,9 +234,9 @@ void kma_free(void* ptr, kma_size_t size)
   }
 }
 
-kma_page_t* init_page(kma_page_t* page)
+kma_page_t* init_page()
 {
-  page = get_page();
+  kma_page_t* page = get_page(); 
   pageheaderT* page_headers = PAGE_HEADER(page);
   page_headers->page = page;
   page_headers->next = NULL;
@@ -310,8 +292,6 @@ void* get_free_buffer(int size)
       buffer_size = get_required_buffer(search_size, page_header);
     }
 
-    // print_pages();
-
     if (buffer_size == NULL)
     {
       i++;
@@ -343,16 +323,34 @@ void* get_free_buffer(int size)
     }
   }
 
-
   while (page_header != NULL)
   {
     prev_page = page_header;
     page_header = page_header->next;
   }
 
-  kma_page_t* new_page = init_page(NULL);
+  kma_page_t* new_page = init_page();
   page_header = PAGE_HEADER(new_page);
   prev_page->next = page_header;
+
+  buffer_size = get_required_buffer(sizeof(pageheaderT), page_header);
+  to_be_allocated = buffer_size->first_block;
+
+  i = 0;
+
+  while (buffer_size != NULL && buffer_size->first_block == NULL)
+  {
+    buffer_size = buffer_size->bigger_size;
+    i++;
+  }
+
+  for(; i > 0; i--)
+  {
+    buffer_size = split_buffer(buffer_size, page_header);
+  }
+
+  to_be_allocated = buffer_size->first_block;
+  buffer_size->first_block = to_be_allocated->next;
 
   if (round_up(REALSIZE(size)) == PAGESIZE)
   {
@@ -366,30 +364,8 @@ void* get_free_buffer(int size)
     page_header->free_headers.buffer4096.first_block = NULL;
     page_header->free_headers.buffer8192.first_block = NULL;
     page_header->used += 1;
-    return (page_header+sizeof(pageheaderT));
+    return (void*)((long int) page_header + sizeof(pageheaderT));
   }
-
-
-  buffer_size = get_required_buffer(sizeof(pageheaderT), page_header);
-  to_be_allocated = buffer_size->first_block;
-
-  i = 0;
-
-  while (buffer_size != NULL && buffer_size->first_block == NULL)
-  {
-    buffer_size = buffer_size->bigger_size;
-    i++;
-  }
-
-  printf("I value: %d\n", i);
-
-  for(; i > 0; i--)
-  {
-    buffer_size = split_buffer(buffer_size, page_header);
-  }
-
-  to_be_allocated = buffer_size->first_block;
-  buffer_size->first_block = to_be_allocated->next;
 
   return get_free_buffer(size);
 }
@@ -468,40 +444,34 @@ allocheaderT* get_buddy(allocheaderT* alloc)
 }
 
 
-void coalesce()
+void coalesce(pageheaderT* page)
 {
-  pageheaderT* page = PAGE_HEADER(first_page);
   freelistL* buffer = get_required_buffer(1, page);
   allocheaderT* alloc;
   allocheaderT* prev = NULL;
 
-  while (page != NULL)
+  while (buffer != NULL)
   {
-    while (buffer != NULL)
+    alloc = buffer->first_block;
+    while (alloc != NULL)
     {
-      alloc = buffer->first_block;
-      while (alloc != NULL)
+      if (alloc->next != NULL && (get_buddy(alloc) == alloc->next))
       {
-        if (alloc->next != NULL && (get_buddy(alloc) == alloc->next))
-        {
-          if (prev == NULL)
-            buffer->first_block = alloc->next->next;
-          else
-            prev->next = alloc->next->next;
-          page->used += 1;
-          kma_free(alloc, alloc->size * 2);
-          return;
-        }
+        if (prev == NULL)
+          buffer->first_block = alloc->next->next;
         else
-        {
-          alloc = alloc->next;
-        }
-        
+          prev->next = alloc->next->next;
+        page->used += 1;
+        kma_free(alloc, alloc->size * 2);
+        return;
       }
-      buffer = buffer->bigger_size;
+      else
+      {
+        alloc = alloc->next;
+      }
+      
     }
-    page = page->next;
-    buffer = get_required_buffer(1, page);
+    buffer = buffer->bigger_size;
   }
 }
 
