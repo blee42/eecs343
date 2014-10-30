@@ -95,14 +95,15 @@ int total = 0;
 /************Function Prototypes******************************************/
 
 void print_pages();
-kma_page_t* init_page(kma_page_t* page);
+kma_page_t* init_page(kma_page_t*);
 void* get_free_entry();
-void* get_free_buffer(int size);
-freelistL* get_required_buffer(int size, pageheaderT* page_header);
-freelistL* split_buffer(freelistL* buffer_size, pageheaderT* page_header);
+void* get_free_buffer(int);
+freelistL* get_required_buffer(int, pageheaderT*);
+freelistL* split_buffer(freelistL*, pageheaderT*);
 
-void* get_buddy();
 void coalesce();
+void* get_buddy();
+int round_up(int);
 	
 /************External Declaration*****************************************/
 
@@ -128,7 +129,7 @@ void print_pages()
       printf("\n** Buffer %d **\n", i);
       while (alloc != NULL)
       {
-        printf("* Free %d: %d, next: %d\n", j, alloc, alloc->next);
+        printf("* Free %d: %d, next: %d, of size: %d\n", j, alloc, alloc->next, alloc->size);
         alloc = alloc->next;
         j++;
       }
@@ -137,6 +138,8 @@ void print_pages()
       buffer = buffer->bigger_size;
     }
     page = page->next;
+    buffer = get_required_buffer(1, page);
+    i = 32;
   }
 }
 
@@ -163,10 +166,50 @@ void* kma_malloc(kma_size_t size)
 
 void kma_free(void* ptr, kma_size_t size)
 {
-  // change bitmap
-  // change free list
-  coalesce();
+  // int a;
+  // scanf("%d", &a);
 
+  printf("--------------------------------------------------\n");
+  printf("              FREE'ing %d spaces.\n", size);
+  printf("                @: %d\n", ptr);
+  printf("--------------------------------------------------\n");
+
+  pageheaderT* page = (pageheaderT*) (BASEADDR(ptr)+sizeof(allocheaderT));
+  freelistL* buffer = get_required_buffer(size, page);
+  allocheaderT* alloc = buffer->first_block;
+
+  allocheaderT* new_alloc = (allocheaderT*) (ptr);
+  new_alloc->start = ALLOC_START(new_alloc);
+  new_alloc->size = round_up(size)  ; // fix this
+  new_alloc->next = NULL;
+
+  if (alloc == NULL)
+  {
+    buffer->first_block = new_alloc;
+  }
+  else if ((int) alloc > (int) new_alloc)
+  {
+    new_alloc->next = alloc;
+    buffer->first_block = new_alloc;
+  }
+  else
+  {
+    while (alloc->next != NULL)
+    {
+      if ((int) alloc->next > (int) new_alloc)
+      {
+        new_alloc->next = alloc->next;
+        alloc->next = new_alloc;
+        break;
+      }
+      else
+      {
+        alloc = alloc->next;
+      }
+    } 
+  }
+
+  coalesce();
 }
 
 kma_page_t* init_page(kma_page_t* page)
@@ -204,6 +247,7 @@ void* get_free_buffer(int size)
   int i = 0;
   allocheaderT* to_be_allocated;
   freelistL* buffer_size = get_required_buffer(REALSIZE(size), page_header);
+
 
   while (page_header != NULL)
   {
@@ -295,6 +339,8 @@ freelistL* split_buffer(freelistL* buffer_size, pageheaderT* page_header)
   allocheaderT* original = buffer_size->first_block;
   buffer_size->first_block = original->next;
 
+  printf("item: %d\n", original);
+  printf("size: %d\n", original->size);
   // make two new ones
   int new_size = (original->size) / 2;
   allocheaderT* new_buffer = (allocheaderT*) ((long int) original + new_size); // -1?
@@ -337,6 +383,18 @@ void coalesce()
   // if i + get_buddy(i) are free, combine
     // recombine bitmaps and update alloc lists
 
+}
+
+int round_up(int x)
+{
+  x--;
+  x |= x >> 1;
+  x |= x >> 2;
+  x |= x >> 4;
+  x |= x >> 8;
+  x |= x >> 16;
+  x++;
+  return x;
 }
 
 
