@@ -51,10 +51,8 @@
  */
 
  typedef struct blockheader_t {
-
   short size;
   void* next_block;
-
  } blockheaderT;
 
 // typedef struct pageheader_t {
