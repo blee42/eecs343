@@ -67,7 +67,7 @@
 #define REAL_PAGE_SIZE (8192 - sizeof(blockheaderT))
 
 /************Global Variables*********************************************/
-kma_page_t* first_page = NULL; // entry to page structure
+kma_page_t* first_page = 0; // entry to page structure
 int total = 0;
 int free_total =0;
 int ignored = 0;
@@ -139,7 +139,7 @@ void* kma_malloc(kma_size_t size)
 {
   total += size;
 
-  if (first_page == NULL)
+  if (first_page == 0)
   {
     first_page = get_page();
     blockheaderT* first_block_header = (blockheaderT*) ((long int) first_page->ptr + sizeof(blockheaderT*));

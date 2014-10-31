@@ -1,0 +1,23 @@
+.\" Process ths file with
+.\" groff -man -Tascii DOC
+.TH KMA Linux "User Manuals"
+
+.SH NAME
+kma \- a kernel memory allocator
+
+.SH SYNOPSIS
+kma_rm \- [trace]
+kma_bud \- [trace]
+
+.SH DESCRIPTION
+.B kma
+is a kernel memory allocator for Unix systems.  The allocator is written using two different alogrithms, resource map (kma_rm), and buddy system (kma_bud).  These two algorithms allocate memory of different sizes and return the address of where the allocation occurs.  The free function takes a pointer to a particular address and frees memory from that location.
+
+.SH DESIGN NOTES
+.IP kma_rm
+We used one data structure, a blockheaderT linked list, to track all of free spots.  For each free spot, the header is saved at the base address, the size of the free space is saved, and a pointer to the next free space is kept.  We did not provide a separate page header strucutre, but instead kept track of the addresses on a page using the BASE MACRO.  After allocating and freeing memory, we coalesce by looking at all of the free spots and combine those that are next to each other.  We also free entire pages which have no memory allocated on them.
+.IP kma_bud
+
+
+.SH AUTHOR
+Written by Brittany Lee (bal312) and Kevin Chen (kjc004)
