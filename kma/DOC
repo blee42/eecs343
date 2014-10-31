@@ -17,7 +17,7 @@ is a kernel memory allocator for Unix systems.  The allocator is written using t
 .IP kma_rm
 We used one data structure, a blockheaderT linked list, to track all of free spots.  For each free spot, the header is saved at the base address, the size of the free space is saved, and a pointer to the next free space is kept.  We did not provide a separate page header strucutre, but instead kept track of the addresses on a page using the BASE MACRO.  After allocating and freeing memory, we coalesce by looking at all of the free spots and combine those that are next to each other.  We also free entire pages which have no memory allocated on them.
 .IP kma_bud
-
+We used multiple data structures for this implementation. Each page has a page header that contains a list of each of the free buffers of each buffer size (multiples of 2 through 8192). Each such free buffer has a allocation header containing its size and a link to the next allocation header in memory of the same size. The page's page header is malloc'ed at the beginning to initially split the buffers and prevent the header from being overwritten. Page headers also keep track of how many buffers are allocated, freeing the page when that number reaches 0. If a malloc request is greater than the 4096, we allocated the whole page to it. Coalescing is done via checking the "buddy" of a buffer; if both are free, they are joined, and this continue recursively.
 
 .SH AUTHOR
 Written by Brittany Lee (bal312) and Kevin Chen (kjc004)
