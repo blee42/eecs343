@@ -142,7 +142,7 @@ void* kma_malloc(kma_size_t size)
   if (first_page == NULL)
   {
     first_page = get_page();
-    blockheaderT* first_block_header = (blockheaderT*) ((int) first_page->ptr + sizeof(blockheaderT*));
+    blockheaderT* first_block_header = (blockheaderT*) ((long int) first_page->ptr + sizeof(blockheaderT*));
     first_block_header->size = REAL_PAGE_SIZE;
     first_block_header->next_block = NULL;
     *((blockheaderT**) first_page->ptr) = first_block_header;
@@ -272,7 +272,7 @@ void* new_page(short size, blockheaderT* previous_block)
   kma_page_t* page = get_page();
   *((kma_page_t**)page->ptr) = page;
 
-  blockheaderT* first_block_header = (blockheaderT*) ((int) page->ptr + sizeof(blockheaderT) + (int) size);
+  blockheaderT* first_block_header = (blockheaderT*) ((long int) page->ptr + sizeof(blockheaderT) + size);
   first_block_header->size = REAL_PAGE_SIZE-size;
   first_block_header->next_block = NULL;
 
@@ -285,7 +285,7 @@ void* new_page(short size, blockheaderT* previous_block)
     previous_block->next_block = first_block_header;
   }
 
-  return (void*)((int) page->ptr + sizeof(blockheaderT));
+  return (void*)((long int) page->ptr + sizeof(blockheaderT));
 }
 
 void update_malloc_headers(short size, blockheaderT* current_block, blockheaderT* previous_block)
@@ -294,7 +294,7 @@ void update_malloc_headers(short size, blockheaderT* current_block, blockheaderT
   short new_size = current_block->size - size;
   
   blockheaderT* new_block;
-  new_block = (blockheaderT*) ((int) current_block + size);
+  new_block = (blockheaderT*) ((long int) current_block + size);
 
   new_block->size = new_size;
   new_block->next_block = (void*) new_next;
@@ -333,7 +333,7 @@ void coalesce()
   {
     if (current_block->next_block != NULL &&
       BASEADDR(current_block) == BASEADDR(current_block->next_block) &&
-      (((int) current_block->next_block) - ((int) current_block + current_block->size)) == 0)
+      (((long int) current_block->next_block) - ((long int) current_block + (long int) current_block->size)) == 0)
     {
       current_block->size += ((blockheaderT*) (current_block->next_block))->size;
       current_block->next_block = (void*) ((blockheaderT*) (current_block->next_block))->next_block;
