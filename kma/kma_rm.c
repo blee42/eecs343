@@ -370,13 +370,20 @@ void clear_empty_pages()
       // first page
       else if (current_page == (first_page->ptr))
       {
+        printf("we should be here\n");
         if (current_block->next_block != NULL)
         {
+          printf("then here\n");
           first_page = *((kma_page_t**) BASEADDR(current_block->next_block));
           *((blockheaderT**) first_page->ptr) = (blockheaderT*) current_block->next_block; // BASEADDR?
+          printf("first page: %d\n", first_page);
+          // free_page(first_page);
+          // first_page = NULL;
+          // return;
         }
         else
         {
+          printf("or is it here\n");
           free_page(first_page);
           first_page = NULL;
           return;
