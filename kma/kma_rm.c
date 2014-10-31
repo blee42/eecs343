@@ -183,6 +183,7 @@ void kma_free(void* ptr, kma_size_t size)
     return;
   }
 
+
   while (current_free_block != NULL)
   {
     // printf("current_free_block: %d\n", current_free_block);
@@ -206,8 +207,8 @@ void kma_free(void* ptr, kma_size_t size)
 
       coalesce();
       clear_empty_pages();
-      print_pages();
-      return;
+      // print_pages();
+      break;
     } 
     else if ((int) current_free_block > (int) ptr)
     {
@@ -226,8 +227,8 @@ void kma_free(void* ptr, kma_size_t size)
 
       coalesce();
       clear_empty_pages();
-      print_pages();
-      return;
+      // print_pages();
+      break;
     }
     else
     {
@@ -235,6 +236,14 @@ void kma_free(void* ptr, kma_size_t size)
       current_free_block = (blockheaderT*) current_free_block->next_block;
     }
   }
+
+  // current_free_block = *((blockheaderT**) first_page->ptr);
+  // if (current_free_block->size == REAL_PAGE_SIZE && current_free_block->next_block == NULL)
+  // {
+  //   printf("penis\n");
+  //   free_page(first_page);
+  //   first_page = NULL;
+  // }
 }
 
 void* find_first_fit(short size)
@@ -373,18 +382,17 @@ void clear_empty_pages()
       // first page
       else if (current_page == (first_page->ptr))
       {
-        kma_page_t* temp = first_page;
         if (current_block->next_block != NULL)
         {
           first_page = *((kma_page_t**) BASEADDR(current_block->next_block));
-          first_page->ptr = current_block->next_block;
+          *((blockheaderT**) first_page->ptr) = (blockheaderT*) current_block->next_block; // BASEADDR?
         }
         else
         {
+          free_page(first_page);
           first_page = NULL;
+          return;
         }
-
-        free_page(temp);
       }
     }
     previous = current_block;
