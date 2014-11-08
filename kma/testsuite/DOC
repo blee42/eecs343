@@ -1,0 +1,26 @@
+.\" Process ths file with
+.\" groff -man -Tascii DOC
+.TH KMA Linux "User Manuals"
+
+.SH NAME
+kma \- a kernel memory allocator
+
+.SH SYNOPSIS
+kma_rm \- [trace]
+kma_bud \- [trace]
+
+.SH DESCRIPTION
+.B kma
+is a kernel memory allocator for Unix systems.  The allocator is written using two different alogrithms, resource map (kma_rm), and buddy system (kma_bud).  These two algorithms allocate memory of different sizes and return the address of where the allocation occurs.  The free function takes a pointer to a particular address and frees memory from that location.
+
+.SH DESIGN NOTES
+.IP kma_rm
+We used one data structure, a blockheaderT linked list, to track all of free spots. For each free spot, the header is saved at the base address, the size of the free space is saved, and a pointer to the next free space is kept. Due to this, as each free spot requires some base number of bytes, our algorithm cannot properly free an amount below that size. Rather importantly, the traces will not complete on a non 32-bit machine since the pointer sizes are too large. We did not provide an explicit page header strucutre, but instead kept track of the addresses on a page using the BASEADDR macro. Pages are indirectly linked to each via the block header linked list and their order is always maintained. After allocating and freeing memory, we coalesce by looking at all of the free spots and combine those that are next to each other.  We also free entire pages which have no memory allocated on them.
+.IP kma_bud
+We used multiple data structures for this implementation. Each page has a page header that contains a list of each of the free buffers of each buffer size (multiples of 2 through 8192). Each such free buffer has a allocation header containing its size and a link to the next allocation header on the same page of the same size. The page's page header is malloc'ed at the beginning to initially split the buffers and prevent the header from being overwritten. Page headers also keep track of how many buffers are allocated, freeing the page when that number reaches 0. If a malloc request is greater than the 4096, we allocated the whole page to it. Coalescing is done via checking the "buddy" of a buffer; if both are free, they are joined, and this continues recursively.
+
+.SH COMPLEXITY ANALYSIS
+Our time tracking indicated that kma_rm requires 8.24s to complete Trace 5, while kma_bud requires 3.10s. This testing was done on the 32-bit virtual machine image provided to us. These results are expected. Resource Maps fills the spaces better, but searching through the singly linked lists takes fairly substantial time. Buddy System was much faster, but inherently suffers from some internal fragmentation and does not use space very efficiently. Our implementation was particular inefficient in how much space we allocated to the page headers and the necessity of flipping through pages.
+
+.SH AUTHOR
+Written by Brittany Lee (bal312) and Kevin Chen (kjc004)

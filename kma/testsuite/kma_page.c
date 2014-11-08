@@ -77,6 +77,7 @@ get_page()
 {
   static int id = 0;
   kma_page_t* res;
+
   
   kma_page_stats.num_requested++;
   kma_page_stats.num_in_use++;
