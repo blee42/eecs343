@@ -23,14 +23,14 @@ typedef struct {
 } pool_task_t;
 
 
-struct pool_t {
+typedef struct pool_t {
   pthread_mutex_t lock;
   pthread_cond_t notify;
   pthread_t *threads;
   pool_task_t *queue;
   int thread_count;
   int task_queue_size_limit;
-};
+} poolT;
 
 static void *thread_do_work(void *pool);
 
@@ -41,7 +41,12 @@ static void *thread_do_work(void *pool);
  */
 pool_t *pool_create(int queue_size, int num_threads)
 {
-    return NULL;
+    poolT* threadpool = malloc(sizeof(poolT));
+    threadpool->thread_count = num_threads;
+    threadpool->task_queue_size_limit = queue_size
+    threadpool->threads = malloc(sizeof(pthread_t) * num_threads);
+
+    return threadpool;
 }
 
 
