@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "thread_pool.h"
 
@@ -41,12 +42,12 @@ static void *thread_do_work(void *pool);
  */
 pool_t *pool_create(int queue_size, int num_threads)
 {
-    poolT* threadpool = malloc(sizeof(poolT));
-    threadpool->thread_count = num_threads;
-    threadpool->task_queue_size_limit = queue_size
-    threadpool->threads = malloc(sizeof(pthread_t) * num_threads);
+    // poolT* threadpool = malloc(sizeof(poolT));
+    // threadpool->thread_count = num_threads;
+    // threadpool->task_queue_size_limit = queue_size
+    // threadpool->threads = malloc(sizeof(pthread_t) * num_threads);
 
-    return threadpool;
+    return NULL;
 }
 
 
@@ -54,11 +55,13 @@ pool_t *pool_create(int queue_size, int num_threads)
  * Add a task to the threadpool
  *
  */
-int pool_add_task(pool_t *pool, void (*function)(void *), void *argument)
+int pool_add_task(pool_t *pool, void* (*function)(void *), void *argument)
 {
-    int err = 0;
-        
-    return err;
+    int status;
+    pthread_t* tid = (pthread_t *) malloc(sizeof(pthread_t));
+    status = pthread_create(tid, NULL, function, argument);
+
+    return status;
 }
 
 

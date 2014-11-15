@@ -87,9 +87,15 @@ int main(int argc,char *argv[])
     while(1)
     {
         connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+        int* conn = malloc(sizeof(int));
+
+        *conn = connfd;
+
+        // multithread
+        pool_add_task(threadpool, (void *) handle_connection, (void *) conn);
         
         // single threaded
-        handle_connection(&connfd);
+        // handle_connection(&connfd);
     }
 }
 
