@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "seats.h"
 
@@ -55,11 +56,13 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
 
 void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int customer_priority)
 {
+    printf("Confirming seat %d for user %d\n", seat_id, customer_id);
     seat_t* curr = seat_header;
     while(curr != NULL)
     {
         if(curr->id == seat_id)
         {
+            pthread_mutex_lock(curr->mutex);
             if(curr->state == PENDING && curr->customer_id == customer_id )
             {
                 snprintf(buf, bufsize, "Seat confirmed: %d %c\n\n",
@@ -74,12 +77,15 @@ void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int cust
             {
                 snprintf(buf, bufsize, "No pending request\n\n");
             }
-
+            printf("Seat %d locked\n",seat_id );
+            pthread_mutex_unlock(curr->mutex);
+            printf("Seat %d unlocked\n",seat_id );
             return;
         }
         curr = curr->next;
     }
     snprintf(buf, bufsize, "Requested seat not found\n\n");
+    printf("seat not found\n");
     
     return;
 }
@@ -93,6 +99,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
     {
         if(curr->id == seat_id)
         {
+            pthread_mutex_lock(curr->mutex);
             if(curr->state == PENDING && curr->customer_id == customer_id )
             {
                 snprintf(buf, bufsize, "Seat request cancelled: %d %c\n\n",
@@ -107,12 +114,15 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
             {
                 snprintf(buf, bufsize, "No pending request\n\n");
             }
-
+            printf("Seat %d locked\n",seat_id );
+            pthread_mutex_unlock(curr->mutex);
+            printf("Seat %d unlocked\n",seat_id );
             return;
         }
         curr = curr->next;
     }
     snprintf(buf, bufsize, "Seat not found\n\n");
+    printf("seat not found\n");
     
     return;
 }
@@ -128,6 +138,10 @@ void load_seats(int number_of_seats)
         temp->customer_id = -1;
         temp->state = AVAILABLE;
         temp->next = NULL;
+
+        pthread_mutex_t* mutex = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
+        pthread_mutex_init(mutex, NULL);
+        temp->mutex = mutex;
         
         if (seat_header == NULL)
         {

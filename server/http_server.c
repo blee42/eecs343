@@ -60,11 +60,11 @@ int main(int argc,char *argv[])
 
     // initialize the threadpool
     // Set the number of threads and size of the queue
-    threadpool = pool_create(0,0);
+    threadpool = pool_create(0,0, (void *) handle_connection);
 
 
     // Load the seats;
-    load_seats(num_seats); //TODO read from argv
+    load_seats(num_seats);
 
     // set server address 
     memset(&serv_addr, '0', sizeof(serv_addr));
@@ -92,7 +92,7 @@ int main(int argc,char *argv[])
         *conn = connfd;
 
         // multithread
-        pool_add_task(threadpool, (void *) handle_connection, (void *) conn);
+        pool_add_task(threadpool, (void *) conn);
         
         // single threaded
         // handle_connection(&connfd);

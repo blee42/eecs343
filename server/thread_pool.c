@@ -18,20 +18,22 @@
 #define MAX_THREADS 20
 #define STANDBY_SIZE 8
 
-typedef struct {
-    void (*function)(void *);
-    void *argument;
-} pool_task_t;
-
+// typedef struct {
+//     void (*function)(void *);
+//     void *argument;
+// } pool_task_t;
 
 typedef struct pool_t {
   pthread_mutex_t lock;
   pthread_cond_t notify;
-  pthread_t *threads;
-  pool_task_t *queue;
+  pthread_t *threads; // array
+  void* (*function)(void *); // function always handle_connection?
+  pool_task_t *queue; // array of connfd
   int thread_count;
   int task_queue_size_limit;
 } poolT;
+
+int thread_count=0;
 
 static void *thread_do_work(void *pool);
 
@@ -40,7 +42,7 @@ static void *thread_do_work(void *pool);
  * Create a threadpool, initialize variables, etc
  *
  */
-pool_t *pool_create(int queue_size, int num_threads)
+pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
 {
     // poolT* threadpool = malloc(sizeof(poolT));
     // threadpool->thread_count = num_threads;
@@ -55,11 +57,18 @@ pool_t *pool_create(int queue_size, int num_threads)
  * Add a task to the threadpool
  *
  */
-int pool_add_task(pool_t *pool, void* (*function)(void *), void *argument)
+int pool_add_task(pool_t *pool, void *argument)
 {
+    // add argument to queue in pool struct
+    
     int status;
     pthread_t* tid = (pthread_t *) malloc(sizeof(pthread_t));
-    status = pthread_create(tid, NULL, function, argument);
+    status = pthread_create(tid, NULL, thread_do_work, (void *) pool);
+
+    printf("created a thread %d\n", thread_count);
+    thread_count++;
+
+
 
     return status;
 }
@@ -87,6 +96,10 @@ static void *thread_do_work(void *pool)
 { 
 
     while(1) {
+      // extract function and arg
+      // call function
+
+      // look at discussion slides
         
     }
 
