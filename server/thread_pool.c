@@ -48,6 +48,7 @@ pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
 {
     poolT* threadpool = (poolT *) malloc(sizeof(poolT));
 
+    int i;
     threadpool->thread_count = num_threads;
     threadpool->threads = (pthread_t *) malloc(sizeof(pthread_t) * num_threads);
 
@@ -61,7 +62,12 @@ pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
     pthread_mutex_init(&threadpool->lock, NULL); // this is so only one thread changes this struct at at time
     pthread_cond_init(&threadpool->notify, NULL); // so threads waiting to use this struct are reactivated?
 
-    // create threads
+    for(i = 0; i < num_threads; i++)
+    {
+        pthread_create(&threadpool->threads[i], NULL, thread_do_work, (void *) threadpool); // seg fault?
+    }
+
+    // TO DO: cond stuff
 
     return threadpool;
 }
@@ -80,14 +86,14 @@ int pool_add_task(pool_t *pool, void* argument)
     pool->queue[pool->q_end] = argument;
     pool->q_end = (pool->q_end + 1) % pool->task_queue_size_limit;
     
-    pthread_t* tid = (pthread_t *) malloc(sizeof(pthread_t));
-    int status = pthread_create(tid, NULL, thread_do_work, (void *) pool);
+    // pthread_t* tid = (pthread_t *) malloc(sizeof(pthread_t));
+    // int status = pthread_create(tid, NULL, thread_do_work, (void *) pool);
 
     printf("created a thread %d\n", thread_count);
     thread_count++;
 
     pthread_mutex_unlock(&pool->lock);
-    return status;
+    return 0;
 }
 
 
@@ -111,22 +117,21 @@ int pool_destroy(pool_t *pool)
  */
 static void *thread_do_work(void *pool)
 {
-    poolT* threadpool = (poolT *) pool;
-    pthread_mutex_lock(&threadpool->lock);
+    while (1)
+    {
+        poolT* threadpool = (poolT *) pool;
+        pthread_mutex_lock(&threadpool->lock);
 
-    // + somet stuff from discussion we should implemenet to be thread-safe?
-    int* argument = threadpool->queue[threadpool->q_start];
-    threadpool->q_start = (threadpool->q_start + 1) % threadpool->task_queue_size_limit;
+        // + somet stuff from discussion we should implemenet to be thread-safe?
+        if (threadpool->q_start != threadpool->q_end)
+        {
+            int* argument = threadpool->queue[threadpool->q_start];
+            threadpool->q_start = (threadpool->q_start + 1) % threadpool->task_queue_size_limit;
+            threadpool->function(argument);
+        }
 
-    pthread_mutex_unlock(&threadpool->lock);
-    threadpool->function(argument);
-
-    // while(1) {
-    //   // extract function and arg
-    //   // call function
-
-        
-    // }
+        pthread_mutex_unlock(&threadpool->lock);
+    }
 
     pthread_exit(NULL);
     return(NULL);
