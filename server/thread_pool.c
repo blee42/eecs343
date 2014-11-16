@@ -28,12 +28,14 @@ typedef struct pool_t {
   pthread_cond_t notify;
   pthread_t *threads; // array
   void* (*function)(void *); // function always handle_connection?
-  pool_task_t *queue; // array of connfd
+  int** queue; // circular array of connfd
+  int q_start; // circular array member
+  int q_end; // circular array member
   int thread_count;
   int task_queue_size_limit;
 } poolT;
 
-int thread_count=0;
+int thread_count=0; // debug counter
 
 static void *thread_do_work(void *pool);
 
@@ -44,12 +46,24 @@ static void *thread_do_work(void *pool);
  */
 pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
 {
-    // poolT* threadpool = malloc(sizeof(poolT));
-    // threadpool->thread_count = num_threads;
-    // threadpool->task_queue_size_limit = queue_size
-    // threadpool->threads = malloc(sizeof(pthread_t) * num_threads);
+    poolT* threadpool = (poolT *) malloc(sizeof(poolT));
 
-    return NULL;
+    threadpool->thread_count = num_threads;
+    threadpool->threads = (pthread_t *) malloc(sizeof(pthread_t) * num_threads);
+
+    threadpool->function = function;
+
+    threadpool->task_queue_size_limit = queue_size;
+    threadpool->queue = (int **) malloc(sizeof(int *) * queue_size);
+    threadpool->q_start = 0;
+    threadpool->q_end = 0;
+
+    pthread_mutex_init(&threadpool->lock, NULL); // this is so only one thread changes this struct at at time
+    pthread_cond_init(&threadpool->notify, NULL); // so threads waiting to use this struct are reactivated?
+
+    // create threads
+
+    return threadpool;
 }
 
 
@@ -57,19 +71,22 @@ pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
  * Add a task to the threadpool
  *
  */
-int pool_add_task(pool_t *pool, void *argument)
+int pool_add_task(pool_t *pool, void* argument)
 {
+    pthread_mutex_lock(&pool->lock);
+
     // add argument to queue in pool struct
+    // CHECK if queue full
+    pool->queue[pool->q_end] = argument;
+    pool->q_end = (pool->q_end + 1) % pool->task_queue_size_limit;
     
-    int status;
     pthread_t* tid = (pthread_t *) malloc(sizeof(pthread_t));
-    status = pthread_create(tid, NULL, thread_do_work, (void *) pool);
+    int status = pthread_create(tid, NULL, thread_do_work, (void *) pool);
 
     printf("created a thread %d\n", thread_count);
     thread_count++;
 
-
-
+    pthread_mutex_unlock(&pool->lock);
     return status;
 }
 
@@ -93,15 +110,23 @@ int pool_destroy(pool_t *pool)
  *
  */
 static void *thread_do_work(void *pool)
-{ 
+{
+    poolT* threadpool = (poolT *) pool;
+    pthread_mutex_lock(&threadpool->lock);
 
-    while(1) {
-      // extract function and arg
-      // call function
+    // + somet stuff from discussion we should implemenet to be thread-safe?
+    int* argument = threadpool->queue[threadpool->q_start];
+    threadpool->q_start = (threadpool->q_start + 1) % threadpool->task_queue_size_limit;
 
-      // look at discussion slides
+    pthread_mutex_unlock(&threadpool->lock);
+    threadpool->function(argument);
+
+    // while(1) {
+    //   // extract function and arg
+    //   // call function
+
         
-    }
+    // }
 
     pthread_exit(NULL);
     return(NULL);

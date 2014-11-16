@@ -18,6 +18,10 @@
 #define BUFSIZE 1024
 #define FILENAMESIZE 100
 
+// our definitions
+#define MAX_THREADS 20
+#define QUEUE_SIZE 10
+
 void shutdown_server(int);
 
 int listenfd;
@@ -60,7 +64,7 @@ int main(int argc,char *argv[])
 
     // initialize the threadpool
     // Set the number of threads and size of the queue
-    threadpool = pool_create(0,0, (void *) handle_connection);
+    threadpool = pool_create(QUEUE_SIZE, MAX_THREADS, (void *) handle_connection);
 
 
     // Load the seats;
@@ -87,11 +91,12 @@ int main(int argc,char *argv[])
     while(1)
     {
         connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
-        int* conn = malloc(sizeof(int));
 
+        // fixes segfaults because of size differences on 64 bit machines?
+        int* conn = malloc(sizeof(int));
         *conn = connfd;
 
-        // multithread
+        // multithreaded
         pool_add_task(threadpool, (void *) conn);
         
         // single threaded
