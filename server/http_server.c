@@ -92,7 +92,6 @@ int main(int argc,char *argv[])
     {
         connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
 
-        // fixes segfaults because of size differences on 64 bit machines?
         int* conn = malloc(sizeof(int));
         *conn = connfd;
 
