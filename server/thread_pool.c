@@ -115,15 +115,12 @@ int pool_destroy(pool_t *pool)
         pthread_join(pool->threads[i], NULL);
     }
 
-
     free(pool->threads);
     free(pool->queue);
     free(pool);
 
     return 0;
 }
-
-
 
 /*
  * Work loop for threads. Should be passed into the pthread_create() method.
