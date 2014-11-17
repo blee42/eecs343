@@ -105,20 +105,20 @@ int pool_add_task(pool_t *pool, void* argument)
  */
 int pool_destroy(pool_t *pool)
 {
-    // pool->shutdown = TRUE;
+    pool->shutdown = TRUE;
 
-    // int i;
-    // for(i = 0; i < pool->thread_count; i++)
-    // {
-    //     pthread_cond_signal(&pool->notify);
-    // }
+    int i;
+    pthread_cond_broadcast(&pool->notify);
 
-    // for(i = 0; i < pool->thread_count; i++)
-    // {
-    //     pthread_join(pool->threads[i], NULL);
-    // }
+    for(i = 0; i < pool->thread_count; i++)
+    {
+        pthread_join(pool->threads[i], NULL);
+    }
 
-    // free(pool);
+
+    free(pool->threads);
+    free(pool->queue);
+    free(pool);
 
     return 0;
 }
@@ -133,11 +133,14 @@ static void *thread_do_work(void *pool)
 {
     poolT* threadpool = (poolT *) pool;
 
-    while (!((threadpool->q_start == threadpool->q_end) && (threadpool->shutdown == TRUE)))
+    while (threadpool->shutdown == FALSE)
     {
         // put to sleep until wake
         pthread_mutex_lock(&threadpool->lock);
-        pthread_cond_wait(&threadpool->notify, &threadpool->lock);
+
+        while ((threadpool->q_start == threadpool->q_end) && (threadpool->shutdown == FALSE)) {
+            pthread_cond_wait(&threadpool->notify, &threadpool->lock);
+        }
 
         if (threadpool->q_start != threadpool->q_end)
         {
