@@ -20,7 +20,7 @@
 
 // our definitions
 #define MAX_THREADS 20
-#define QUEUE_SIZE 10
+#define QUEUE_SIZE 21
 
 void shutdown_server(int);
 
@@ -99,8 +99,6 @@ int main(int argc,char *argv[])
         // multithreaded
         pool_add_task(threadpool, (void *) conn);
         
-        // single threaded
-        // handle_connection(&connfd);
     }
 }
 

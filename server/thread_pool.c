@@ -18,6 +18,9 @@
 #define MAX_THREADS 20
 #define STANDBY_SIZE 8
 
+#define TRUE 1
+#define FALSE 0
+
 // typedef struct {
 //     void (*function)(void *);
 //     void *argument;
@@ -26,8 +29,9 @@
 typedef struct pool_t {
   pthread_mutex_t lock;
   pthread_cond_t notify;
-  pthread_t *threads; // array
+  pthread_t* threads; // array
   void* (*function)(void *); // function always handle_connection?
+  int shutdown;
   int** queue; // circular array of connfd
   int q_start; // circular array member
   int q_end; // circular array member
@@ -53,6 +57,7 @@ pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
     threadpool->threads = (pthread_t *) malloc(sizeof(pthread_t) * num_threads);
 
     threadpool->function = function;
+    threadpool->shutdown = FALSE;
 
     threadpool->task_queue_size_limit = queue_size;
     threadpool->queue = (int **) malloc(sizeof(int *) * queue_size);
@@ -66,8 +71,6 @@ pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
     {
         pthread_create(&threadpool->threads[i], NULL, thread_do_work, (void *) threadpool); // seg fault?
     }
-
-    // TO DO: cond stuff
 
     return threadpool;
 }
@@ -86,12 +89,10 @@ int pool_add_task(pool_t *pool, void* argument)
     pool->queue[pool->q_end] = argument;
     pool->q_end = (pool->q_end + 1) % pool->task_queue_size_limit;
     
-    // pthread_t* tid = (pthread_t *) malloc(sizeof(pthread_t));
-    // int status = pthread_create(tid, NULL, thread_do_work, (void *) pool);
-
-    printf("created a thread %d\n", thread_count);
+    printf("adding a task! %d\n", thread_count);
     thread_count++;
 
+    pthread_cond_signal(&pool->notify);
     pthread_mutex_unlock(&pool->lock);
     return 0;
 }
@@ -104,9 +105,22 @@ int pool_add_task(pool_t *pool, void* argument)
  */
 int pool_destroy(pool_t *pool)
 {
-    int err = 0;
- 
-    return err;
+    // pool->shutdown = TRUE;
+
+    // int i;
+    // for(i = 0; i < pool->thread_count; i++)
+    // {
+    //     pthread_cond_signal(&pool->notify);
+    // }
+
+    // for(i = 0; i < pool->thread_count; i++)
+    // {
+    //     pthread_join(pool->threads[i], NULL);
+    // }
+
+    // free(pool);
+
+    return 0;
 }
 
 
@@ -117,12 +131,14 @@ int pool_destroy(pool_t *pool)
  */
 static void *thread_do_work(void *pool)
 {
-    while (1)
-    {
-        poolT* threadpool = (poolT *) pool;
-        pthread_mutex_lock(&threadpool->lock);
+    poolT* threadpool = (poolT *) pool;
 
-        // + somet stuff from discussion we should implemenet to be thread-safe?
+    while (!((threadpool->q_start == threadpool->q_end) && (threadpool->shutdown == TRUE)))
+    {
+        // put to sleep until wake
+        pthread_mutex_lock(&threadpool->lock);
+        pthread_cond_wait(&threadpool->notify, &threadpool->lock);
+
         if (threadpool->q_start != threadpool->q_end)
         {
             int* argument = threadpool->queue[threadpool->q_start];
