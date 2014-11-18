@@ -20,7 +20,7 @@
 
 // our definitions
 #define MAX_THREADS 20
-#define QUEUE_SIZE 21
+#define QUEUE_SIZE 20
 
 void shutdown_server(int);
 
