@@ -25,7 +25,7 @@ int parse_int_arg(char* filename, char* arg);
 void handle_connection(int* connfd_ptr)
 {
     int connfd = *(connfd_ptr);
-    free(connfd_ptr); // memory leak or else :()
+    free(connfd_ptr); // memory leak or else :(
 
     int fd;
     char buf[BUFSIZE+1];

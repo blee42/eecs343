@@ -2,16 +2,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
-
-typedef struct m_sem_t {
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    int count;
-} m_sem_t;
-
-int sem_init(m_sem_t *s);
-int sem_wait(m_sem_t *s);
-int sem_post(m_sem_t *s);
+#include "m_semaphore.h"
 
 int sem_init(m_sem_t *s)
 {	

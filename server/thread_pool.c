@@ -16,7 +16,6 @@
  */
 
 #define MAX_THREADS 20
-#define STANDBY_SIZE 8
 
 #define TRUE 1
 #define FALSE 0

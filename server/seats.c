@@ -4,9 +4,10 @@
 #include <pthread.h>
 
 #include "seats.h"
-
+#include "m_semaphore.h"
 
 #define STANDBY_SIZE 8
+
 typedef struct standby_l
 {
     int customer_id;
@@ -16,6 +17,7 @@ typedef struct standby_l
 seat_t* seat_header = NULL;
 standbyL* head = NULL;
 int standby_length = 0;
+m_sem_t* semaphore = NULL;
 
 char seat_state_to_char(seat_state_t);
 
@@ -74,6 +76,7 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
                         iter->next = new_standby;
                     }
 
+                    standby_length++;
                 }
 
             }
@@ -143,6 +146,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
                     curr->customer_id = head->customer_id;
                     head = head->next;
                     curr->state = OCCUPIED;
+                    standby_length--;
                 }
                 else
                 {
