@@ -130,7 +130,7 @@ static void *thread_do_work(void *pool)
 {
     poolT* threadpool = (poolT *) pool;
 
-    while (threadpool->shutdown == FALSE)
+    while (1)
     {
         // put to sleep until wake
         pthread_mutex_lock(&threadpool->lock);
@@ -138,6 +138,9 @@ static void *thread_do_work(void *pool)
         while ((threadpool->q_start == threadpool->q_end) && (threadpool->shutdown == FALSE)) {
             pthread_cond_wait(&threadpool->notify, &threadpool->lock);
         }
+
+        if (threadpool->shutdown == TRUE)
+            break;
 
         if (threadpool->q_start != threadpool->q_end)
         {
