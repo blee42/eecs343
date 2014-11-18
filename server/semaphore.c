@@ -35,6 +35,8 @@ int sem_destroy(m_sem_t *s)
     return 0;
 }
 
+// Waits for a signal and decrements
+// the semaphore counter.
 int sem_wait(m_sem_t *s)
 {
 	pthread_mutex_t* mutex = &s->mutex;
@@ -49,6 +51,8 @@ int sem_wait(m_sem_t *s)
     return 0;
 }
 
+// Broadcasts a signal and increments
+// the semaphore counter.
 int sem_post(m_sem_t *s)
 {
     pthread_mutex_t* mutex = &s->mutex;

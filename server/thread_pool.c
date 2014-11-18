@@ -46,8 +46,9 @@ static void *thread_do_work(void *pool);
 
 
 /*
- * Create a threadpool, initialize variables, etc
- *
+    Create a threadpool and initializes all of its components.
+
+    Most importantly: creates a pthread array and kicks starts all of them.
  */
 pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
 {
@@ -76,19 +77,13 @@ pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
     return threadpool;
 }
 
-
 /*
- * Add a task to the threadpool
- *
+    Adds a task to the threadpool.
  */
 int pool_add_task(pool_t *pool, void* argument)
 {
     pthread_mutex_lock(&pool->lock);
 
-    while ((pool->q_start - 1) % pool->task_queue_size_limit == pool->q_end)
-    {
-        // do nothing
-    }
     pool->queue[pool->q_end] = argument;
     pool->q_end = (pool->q_end + 1) % pool->task_queue_size_limit;
 
@@ -97,11 +92,9 @@ int pool_add_task(pool_t *pool, void* argument)
     return 0;
 }
 
-
-
 /*
- * Destroy the threadpool, free all memory, destroy treads, etc
- *
+    Destroy the threadpool, free all memory, destroy treads, etc.
+
  */
 int pool_destroy(pool_t *pool)
 {
@@ -125,8 +118,10 @@ int pool_destroy(pool_t *pool)
 }
 
 /*
- * Work loop for threads. Should be passed into the pthread_create() method.
- *
+    Work loop for threads. This is passed into pthread_create.
+
+    The data passed in is the threadpool itself, which contains all
+    of the needed data.
  */
 static void *thread_do_work(void *pool)
 {
@@ -136,10 +131,12 @@ static void *thread_do_work(void *pool)
     {
         pthread_mutex_lock(&threadpool->lock);
 
+        // checks the queue is empty and no shutdown command has been issued
         while ((threadpool->q_start == threadpool->q_end) && (threadpool->shutdown == FALSE)) {
             pthread_cond_wait(&threadpool->notify, &threadpool->lock);
         }
 
+        // shutdown if threads if command issued, since we need to destroy everything
         if (threadpool->shutdown == TRUE)
             break;
 
