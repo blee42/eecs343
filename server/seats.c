@@ -5,7 +5,17 @@
 
 #include "seats.h"
 
+
+#define STANDBY_SIZE 8
+typedef struct standby_l
+{
+    int customer_id;
+    struct standby_l* next;
+} standbyL;
+
 seat_t* seat_header = NULL;
+standbyL* head = NULL;
+int standby_length = 0;
 
 char seat_state_to_char(seat_state_t);
 
@@ -44,6 +54,28 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
             else
             {
                 snprintf(buf, bufsize, "Seat unavailable\n\n");
+                if (standby_length != STANDBY_SIZE)
+                {
+                    standbyL* new_standby = (standbyL*) malloc(sizeof(standbyL));
+                    new_standby->customer_id = customer_id;
+                    new_standby->next = NULL;
+
+                    standbyL* iter = head;
+
+                    if (standby_length == 0)
+                    {
+                        head = new_standby;
+                    }
+                    else
+                    {
+                        while (iter->next != NULL)
+                            iter = iter->next;
+
+                        iter->next = new_standby;
+                    }
+
+                }
+
             }
 
             return;
@@ -105,7 +137,17 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
             {
                 snprintf(buf, bufsize, "Seat request cancelled: %d %c\n\n",
                         curr->id, seat_state_to_char(curr->state));
-                curr->state = AVAILABLE;
+
+                if (standby_length > 0)
+                {
+                    curr->customer_id = head->customer_id;
+                    head = head->next;
+                    curr->state = OCCUPIED;
+                }
+                else
+                {
+                    curr->state = AVAILABLE;
+                }
             }
             else if(curr->customer_id != customer_id )
             {
