@@ -217,6 +217,10 @@ void unload_seats()
         curr = curr->next;
         free(temp);
     }
+
+    free(&semaphore->mutex);
+    free(&semaphore->cond);
+    free(semaphore);    
 }
 
 char seat_state_to_char(seat_state_t state)

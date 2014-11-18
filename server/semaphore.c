@@ -8,7 +8,7 @@ int sem_init(m_sem_t *s)
 {	
     pthread_mutex_init(&s->mutex, NULL);
     pthread_cond_init(&s->cond, NULL);
-	s->count = 1;
+	s->count = 0;
 	return 0;
 }
 
