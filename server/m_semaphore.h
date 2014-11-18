@@ -8,6 +8,7 @@ typedef struct m_sem_t {
 } m_sem_t;
 
 int sem_init(m_sem_t *s);
+int sem_destroy(m_sem_t *s);
 int sem_wait(m_sem_t *s);
 int sem_post(m_sem_t *s);
 

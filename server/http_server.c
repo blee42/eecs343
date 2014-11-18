@@ -62,7 +62,7 @@ int main(int argc,char *argv[])
     flag = 1;
     setsockopt( listenfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag) );
 
-    // initialize the threadpool
+    // Initialize the threadpool
     // Set the number of threads and size of the queue
     threadpool = pool_create(QUEUE_SIZE, MAX_THREADS, (void *) handle_connection);
 
@@ -91,12 +91,14 @@ int main(int argc,char *argv[])
     {
         connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
 
+        // Allocate a new variable. connfd would be used by all connections, so
+        // we do this to prevent weird behavior as it's passed in but overwritten.
+        // This is all freed in util.c later on.
         int* conn = malloc(sizeof(int));
         *conn = connfd;
 
-        // multithreaded
-        pool_add_task(threadpool, (void *) conn);
-        
+        // Adds task to threadpool!
+        pool_add_task(threadpool, (void *) conn);        
     }
 }
 

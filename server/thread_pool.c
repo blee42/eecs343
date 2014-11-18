@@ -114,6 +114,8 @@ int pool_destroy(pool_t *pool)
         pthread_join(pool->threads[i], NULL);
     }
 
+    pthread_mutex_destroy(&pool->lock);
+    pthread_cond_destroy(&pool->notify);
     free(pool->threads);
     free(pool->queue);
     free(pool);

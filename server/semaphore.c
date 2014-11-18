@@ -12,6 +12,13 @@ int sem_init(m_sem_t *s)
 	return 0;
 }
 
+int sem_destroy(m_sem_t *s)
+{
+    pthread_mutex_destroy(&s->mutex);
+    pthread_cond_destroy(&s->cond);
+    return 0;
+}
+
 int sem_wait(m_sem_t *s)
 {
 	pthread_mutex_t* mutex = &s->mutex;
