@@ -20,25 +20,27 @@
 #define TRUE 1
 #define FALSE 0
 
+// Provided in a original code. Not needed.
 // typedef struct {
 //     void (*function)(void *);
 //     void *argument;
 // } pool_task_t;
 
+// Pool has been upgraded to have an array of threads, a function handle
+// (since it doesn't make sense to always pass through the function) and
+// a queue, implemented as a circular array.
 typedef struct pool_t {
   pthread_mutex_t lock;
   pthread_cond_t notify;
   pthread_t* threads; // array
-  void* (*function)(void *); // function always handle_connection?
+  void* (*function)(void *); // always handle_connection
   int shutdown;
-  int** queue; // circular array of connfd
-  int q_start; // circular array member
-  int q_end; // circular array member
+  int** queue; // circular array of connfds
+  int q_start; // circular array start
+  int q_end; // circular end
   int thread_count;
   int task_queue_size_limit;
 } poolT;
-
-int thread_count=0; // debug counter
 
 static void *thread_do_work(void *pool);
 
@@ -63,12 +65,12 @@ pool_t *pool_create(int queue_size, int num_threads, void* (*function)(void *))
     threadpool->q_start = 0;
     threadpool->q_end = 0;
 
-    pthread_mutex_init(&threadpool->lock, NULL); // this is so only one thread changes this struct at at time
-    pthread_cond_init(&threadpool->notify, NULL); // so threads waiting to use this struct are reactivated?
+    pthread_mutex_init(&threadpool->lock, NULL);
+    pthread_cond_init(&threadpool->notify, NULL);
 
     for(i = 0; i < num_threads; i++)
     {
-        pthread_create(&threadpool->threads[i], NULL, thread_do_work, (void *) threadpool); // seg fault?
+        pthread_create(&threadpool->threads[i], NULL, thread_do_work, (void *) threadpool);
     }
 
     return threadpool;
@@ -83,13 +85,12 @@ int pool_add_task(pool_t *pool, void* argument)
 {
     pthread_mutex_lock(&pool->lock);
 
-    // add argument to queue in pool struct
-    // CHECK if queue full
+    while ((pool->q_start - 1) % pool->task_queue_size_limit == pool->q_end)
+    {
+        // do nothing
+    }
     pool->queue[pool->q_end] = argument;
     pool->q_end = (pool->q_end + 1) % pool->task_queue_size_limit;
-    
-    printf("adding a task! %d\n", thread_count);
-    thread_count++;
 
     pthread_cond_signal(&pool->notify);
     pthread_mutex_unlock(&pool->lock);
@@ -133,7 +134,6 @@ static void *thread_do_work(void *pool)
 
     while (1)
     {
-        // put to sleep until wake
         pthread_mutex_lock(&threadpool->lock);
 
         while ((threadpool->q_start == threadpool->q_end) && (threadpool->shutdown == FALSE)) {

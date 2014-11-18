@@ -1,12 +1,15 @@
 #ifndef _SEMAPHORE_H_
 #define _SEMAPHORE_H_
 
+// Semaphore struct. Contains a
+// mutex, cond, and integer count.
 typedef struct m_sem_t {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     int count;
 } m_sem_t;
 
+// Function prototypes
 int sem_init(m_sem_t *s);
 int sem_destroy(m_sem_t *s);
 int sem_wait(m_sem_t *s);
