@@ -1,0 +1,13 @@
+Architecture Design Decisions and Notes
+
+Connections while loop:
+In the connections while loop (http_server.c) we initialized a separate int* variable for connfd called *conn and then we freed that variable in util.c to prevent memory leaks.
+
+Thread pool:
+Our thread pool used the same basic structure given in the skeleton code, but we changed threads and queue to be arrays instead of linked lists.  We used a circular array for the bounded argument queue and we also specified the function call in this structure instead of passing the function.
+
+Resource mutual exclusion:
+To handle resource mutual exclusion we added a pthread_mutex_t called lock in the pool structure.  We locked and unlocked the mutex when adding tasks to the pool to prevent multiple tasks being added at once and in thread_do_work to wait on the threads to be activated and assigned tasks.
+
+Standby list:
+When a user views a seat that is unavailable, that user is added to the standby list.  Then when any other user cancels their reservation, the user takes that seat.  The list is implemented as a first in first out linked list in seats.c.  To prevent mutiple people being added to the standby list at once, a semphore is used.  The semaphore is written in semaphore.c and the header file is m_semaphore.h.
