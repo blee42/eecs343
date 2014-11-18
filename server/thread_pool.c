@@ -94,7 +94,6 @@ int pool_add_task(pool_t *pool, void* argument)
 
 /*
     Destroy the threadpool, free all memory, destroy treads, etc.
-
  */
 int pool_destroy(pool_t *pool)
 {
