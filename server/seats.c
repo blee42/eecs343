@@ -17,7 +17,7 @@ typedef struct standby_l
 seat_t* seat_header = NULL;
 standbyL* head = NULL;
 int standby_length = 0;
-m_sem_t* semaphore = NULL;
+m_sem_t* semaphore;
 
 char seat_state_to_char(seat_state_t);
 
@@ -58,6 +58,7 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
                 snprintf(buf, bufsize, "Seat unavailable\n\n");
                 if (standby_length != STANDBY_SIZE)
                 {
+                    sem_wait(semaphore);
                     standbyL* new_standby = (standbyL*) malloc(sizeof(standbyL));
                     new_standby->customer_id = customer_id;
                     new_standby->next = NULL;
@@ -77,6 +78,7 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
                     }
 
                     standby_length++;
+                    sem_post(semaphore);
                 }
 
             }
@@ -143,10 +145,12 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
 
                 if (standby_length > 0)
                 {
+                    sem_wait(semaphore);
                     curr->customer_id = head->customer_id;
                     head = head->next;
                     curr->state = OCCUPIED;
                     standby_length--;
+                    sem_post(semaphore);
                 }
                 else
                 {
@@ -199,6 +203,8 @@ void load_seats(int number_of_seats)
         }
         curr = temp;
     }
+
+    sem_init(semaphore);
 }
 
 void unload_seats()
