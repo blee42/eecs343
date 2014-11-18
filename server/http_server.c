@@ -66,7 +66,6 @@ int main(int argc,char *argv[])
     // Set the number of threads and size of the queue
     threadpool = pool_create(QUEUE_SIZE, MAX_THREADS, (void *) handle_connection);
 
-
     // Load the seats;
     load_seats(num_seats);
 

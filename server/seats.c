@@ -204,6 +204,7 @@ void load_seats(int number_of_seats)
         curr = temp;
     }
 
+    semaphore = (m_sem_t*) malloc(sizeof(m_sem_t));
     sem_init(semaphore);
 }
 
