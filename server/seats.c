@@ -8,12 +8,18 @@
 
 #define STANDBY_SIZE 8
 
+// Standby List, represented using a linked list.
+// Customers are added to this when their seat is
+// unavailable and taken off when a seat is freed.
 typedef struct standby_l
 {
     int customer_id;
     struct standby_l* next;
 } standbyL;
 
+// A few other useful variables have been added here --
+// the head of the standby linked list, the length, and
+// the semaphore object we use to control the list.
 seat_t* seat_header = NULL;
 standbyL* head = NULL;
 int standby_length = 0;
@@ -56,6 +62,9 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
             else
             {
                 snprintf(buf, bufsize, "Seat unavailable\n\n");
+
+                // Thread safe adding of a new standby customer the standby list.
+                // We add the customer to the end of the list if there's space.
                 if (standby_length != STANDBY_SIZE)
                 {
                     sem_wait(semaphore);
@@ -143,6 +152,10 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
                 snprintf(buf, bufsize, "Seat request cancelled: %d %c\n\n",
                         curr->id, seat_state_to_char(curr->state));
 
+                // Thread safe reassignment of a cancelled seat to 
+                // a customer that previous was unable to get a seat.
+                // The first customer on the standby list is given
+                // this cancelled seat.
                 if (standby_length > 0)
                 {
                     sem_wait(semaphore);
@@ -177,6 +190,8 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
     return;
 }
 
+// A few more variables have been initialized here, namely a mutex
+// for each seat node and the main semaphore.
 void load_seats(int number_of_seats)
 {
     seat_t* curr = NULL;
@@ -208,6 +223,7 @@ void load_seats(int number_of_seats)
     sem_init(semaphore);
 }
 
+// Now also destroys mutexs and the main semaphore!
 void unload_seats()
 {
     seat_t* curr = seat_header;
@@ -215,11 +231,11 @@ void unload_seats()
     {
         seat_t* temp = curr;
         curr = curr->next;
+        pthread_mutex_destroy(temp->mutex);
         free(temp);
     }
 
-    free(&semaphore->mutex);
-    free(&semaphore->cond);
+    sem_destroy(semaphore);
     free(semaphore);    
 }
 
