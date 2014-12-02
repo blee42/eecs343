@@ -38,7 +38,6 @@ void * get_block(void * fs, __u32 block_num) {
 // ext2 filesystems will have several of these, but, for simplicity, we will
 // assume there is only one.
 struct ext2_group_desc * get_block_group(void * fs, __u32 block_group_num) {
-    // FIXME: Uses reference implementation.
     return (struct ext2_group_desc *) get_block(fs, 2); // not sure what to do with second arg
 }
 
@@ -47,8 +46,9 @@ struct ext2_group_desc * get_block_group(void * fs, __u32 block_group_num) {
 // would require finding the correct block group, but you may assume it's in the
 // first one.
 struct ext2_inode * get_inode(void * fs, __u32 inode_num) {
-    // FIXME: Uses reference implementation.
-    return _ref_get_inode(fs, inode_num);
+    struct ext2_super_block* super = get_super_block(fs);
+    void* table = get_block(fs, get_block_group(fs, 0)->bg_inode_table);
+    return table + ((inode_num - 1) * super->s_inode_size);
 }
 
 
