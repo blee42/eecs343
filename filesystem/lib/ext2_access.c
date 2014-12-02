@@ -126,7 +126,7 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
         }
     }
 
-    return _ref_get_inode_from_dir(fs, dir, name);
+    return 0;
 }
 
 
