@@ -118,7 +118,7 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
 
         while (current_block_ptr <= end_block_ptr && current_dir->rec_len)
         {
-            current_dir = (struct ext2_dir_entry *) current_block_ptr;
+            current_dir = (struct ext2_dir_entry_2 *) current_block_ptr;
 
             // printf("curr_block = %p\n", current_block);
             // printf("current_dir = %p\n", current_dir);
@@ -126,7 +126,7 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
             // printf("current_dir->name = %s\n", current_dir->name);
             // printf("current_dir->name_len = %d\n", current_dir->name_len); 
 
-            if (strncmp(name, current_dir->name, current_dir-> name_len & 255) == 0) // not sure exactly why...
+            if (strncmp(name, current_dir->name, current_dir-> name_len) == 0) // not sure exactly why...
                 return current_dir->inode;
             else
                 current_block_ptr += current_dir->rec_len;
