@@ -99,23 +99,33 @@ struct ext2_inode * get_root_dir(void * fs) {
 // name should be a single component: "foo.txt", not "/files/foo.txt".
 __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir, 
         char * name) {
-    // __u32* blocks = dir->i_block;
-    // __u32 block_size = get_block_size(fs);
 
-    // void* current_block = get_block(fs, blocks[0]);
-    // struct ext2_dir_entry* current_entry = (struct ext2_dir_entry *) current_block;
-    // void* end_block = current_block + block_size * 12;
+    int i;
+    __u32* blocks = dir->i_block;
+    __u32 block_size = get_block_size(fs);
 
-    // while (current_block <= end_block)
-    // {
-    //     if (strcmp(name, current_entry->name))
-    //         return current_entry->inode;
-    //     else
-    //     {
-    //         current_block += current_entry->rec_len;
-    //     }
-    // }
-    // return 0;
+    void* current_block;
+    void* current_block_ptr;
+    void* end_block_ptr;
+    struct ext2_dir_entry* current_dir;
+
+    for(i = 0; i < 12; i++)
+    {
+        current_block = get_block(fs, blocks[i]);
+        current_block_ptr = current_block;
+        end_block_ptr = current_block + block_size;
+
+        while (current_block_ptr <= end_block_ptr)
+        {
+            current_dir = (struct ext2_dir_entry *) current_block_ptr;
+
+            if (strcmp(name, current_dir->name))
+                return current_dir->inode;
+            else
+                current_block_ptr += current_dir->rec_len;
+        }
+    }
+
     return _ref_get_inode_from_dir(fs, dir, name);
 }
 
