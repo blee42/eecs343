@@ -107,13 +107,13 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
     void* current_block;
     void* current_block_ptr;
     void* end_block_ptr;
-    struct ext2_dir_entry* current_dir;
+    struct ext2_dir_entry_2* current_dir;
 
     for(i = 0; i < 12; i++)
     {
         current_block = get_block(fs, blocks[i]);
         current_block_ptr = current_block;
-        current_dir = (struct ext2_dir_entry *) current_block_ptr;
+        current_dir = (struct ext2_dir_entry_2 *) current_block_ptr;
         end_block_ptr = current_block + block_size;
 
         while (current_block_ptr <= end_block_ptr && current_dir->rec_len)
