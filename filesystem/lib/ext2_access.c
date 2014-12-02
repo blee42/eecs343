@@ -119,7 +119,7 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
         {
             current_dir = (struct ext2_dir_entry *) current_block_ptr;
 
-            if (strcmp(name, current_dir->name))
+            if (strcmp(name, current_dir->name) == 0)
                 return current_dir->inode;
             else
                 current_block_ptr += current_dir->rec_len;
