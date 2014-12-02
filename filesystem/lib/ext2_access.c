@@ -154,7 +154,6 @@ __u32 get_inode_by_path(void * fs, char * path) {
 
     for(i = 0; i < count; i++)
     {
-        printf("path %d: %s\n", i, paths[i]);
         res = get_inode_from_dir(fs, root, paths[i]);
 
         if (res != 0)
