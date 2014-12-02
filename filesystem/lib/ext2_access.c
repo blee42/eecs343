@@ -115,7 +115,7 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
         current_block_ptr = current_block;
         end_block_ptr = current_block + block_size;
 
-        while (current_block_ptr <= end_block_ptr)
+        while (current_block_ptr <= end_block_ptr && current_dir->rec_len)
         {
             current_dir = (struct ext2_dir_entry *) current_block_ptr;
 
