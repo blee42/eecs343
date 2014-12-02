@@ -120,16 +120,8 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
         {
             current_dir = (struct ext2_dir_entry *) current_block_ptr;
 
-            // printf("curr_block = %p\n", current_block);
-            // printf("current_dir = %p\n", current_dir);
-            printf("search_name = %s\n", name);
-            printf("current_dir->name = %s\n", current_dir->name);
-            printf("current_dir->rec_len = %d\n", current_dir->rec_len); 
-            printf("string compare: %d\n", strncmp(name, current_dir->name, current_dir->name_len)); // ?????
-
             if (strncmp(name, current_dir->name, current_dir-> name_len & (~(~0 << 8))) == 0)
             {
-                printf("RETURNED NAME: %s\n", current_dir->name);
                 return current_dir->inode;
             }
             else
