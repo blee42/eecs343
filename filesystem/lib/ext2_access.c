@@ -38,7 +38,7 @@ void * get_block(void * fs, __u32 block_num) {
 // ext2 filesystems will have several of these, but, for simplicity, we will
 // assume there is only one.
 struct ext2_group_desc * get_block_group(void * fs, __u32 block_group_num) {
-    return (struct ext2_group_desc *) get_block(fs, 2); // not sure what to do with second arg
+    return (struct ext2_group_desc *) get_block(fs, 2); // only one group, not using second arg
 }
 
 

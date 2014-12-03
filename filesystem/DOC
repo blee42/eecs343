@@ -1,0 +1,22 @@
+Design Implementation Notes
+
+We basically implemented all of our functions according to the ext2 spec provided.
+Several important assumptions:
+ * We're assuming that there's only one blockgroup descriptor, as suggested to us by the
+   skeleton's comments. As a result, get_block_group does not actually use the second
+   argument provided, block_group_num, since we're always getting the first block. Thus,
+   we can just get the second block of the entire filesystem always.
+ * Every call to get_block_group just passes in 0 as the second argument, since it doesn't
+   matter. The only call is in get_inode.
+ * There are garbage characters at the end of file names, so we use strncmp in get_inode_from_dir
+   to precisely compare with the name argument. We also use the ext2_dir_entry_2 type for the
+   directory since the name_len field can't be longer than 255 characters.
+ * get_inode_by_path basically follows the spec. It separates the path name based on slashes, searches
+   for the first token, enters the directory, and repeats, or returns 0 if the file isn't found at
+   any point.
+
+We also implemented the indirect block extra credit.
+ * Our code starts at line 45 in ext2cat.c
+ * We basically just read blocks one at time from each of the blocks that the indirect block points at.
+
+Written by Brittany Lee (bal312) and Kevin Chen (kjc004)
