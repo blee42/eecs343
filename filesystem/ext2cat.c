@@ -45,7 +45,7 @@ int main(int argc, char ** argv) {
     void* indirect_block = get_block(fs, target_ino->i_block[12]);
     __u32* next_block = (__u32 *) indirect_block;
 
-    while (bytes_read < size && ((next_block - (__u32*) indirect_block) < block_size)) {        
+    while (bytes_read < size && ((__u32) (next_block - (__u32*) indirect_block) < block_size)) {        
         bytes_left = size - bytes_read;
         if (bytes_left > block_size)
             bytes_to_read = block_size;
